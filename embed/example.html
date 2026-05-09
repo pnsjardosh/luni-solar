@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Luni Solar Embed Example</title>
+    <style>
+      body {
+        margin: 0;
+        background: #f2efe7;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+
+      .page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 40px 20px 60px;
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        color: #25180c;
+      }
+
+      p {
+        max-width: 68ch;
+        color: #4f4337;
+        line-height: 1.5;
+      }
+    </style>
+    <script type="module" src="./luni-solar-embed.js"></script>
+  </head>
+  <body>
+    <div class="page">
+      <h1>Luni Solar Website Embed</h1>
+      <p>This demo shows the standalone widget embedded into a normal page layout.</p>
+      <luni-solar-embed
+        app-base="../index.html"
+        location="Ahmedabad, India"
+        lat="23.0225"
+        lon="72.5714"
+        date="2026-05-21T14:55:03.058Z"
+        height="1280">
+      </luni-solar-embed>
+    </div>
+  </body>
+</html>

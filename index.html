@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Luni Solar Calendar Draft</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Live Vedic Time Atlas</p>
+          <h1>Luni Solar</h1>
+        </div>
+        <div class="control-strip">
+          <label>
+            <span>Location</span>
+            <input id="locationInput" value="Ahmedabad, India" />
+          </label>
+          <label>
+            <span>Latitude</span>
+            <input id="latInput" type="number" step="0.0001" value="23.0225" />
+          </label>
+          <label>
+            <span>Longitude</span>
+            <input id="lonInput" type="number" step="0.0001" value="72.5714" />
+          </label>
+          <label>
+            <span>Date & time</span>
+            <input id="dateInput" type="datetime-local" />
+          </label>
+          <button id="nowButton" type="button">Now</button>
+          <button id="geoButton" type="button">Use Location</button>
+          <div class="transport" aria-label="Time playback controls">
+            <button id="dayBackButton" class="icon-button wide" type="button" title="Previous day" aria-label="Previous day">-1d</button>
+            <button id="reverseButton" class="icon-button" type="button" title="Reverse time" aria-label="Reverse time">&lt;</button>
+            <button id="pauseButton" class="icon-button active" type="button" title="Play" aria-label="Play">&#9654;</button>
+            <button id="forwardButton" class="icon-button" type="button" title="Forward time" aria-label="Forward time">&gt;</button>
+            <button id="dayForwardButton" class="icon-button wide" type="button" title="Next day" aria-label="Next day">+1d</button>
+          </div>
+        </div>
+      </header>
+
+      <section class="hero-grid">
+        <section class="sky-panel" aria-label="Nakshatra sky wheel">
+          <div class="panel-title">
+            <div>
+              <p class="eyebrow">Sidereal Ecliptic</p>
+              <h2>27 Nakshatra Wheel</h2>
+            </div>
+            <div class="phase-chip" id="phaseChip">Waxing Moon</div>
+          </div>
+          <div class="wheel-wrap">
+            <svg id="starChart" viewBox="0 0 3840 3840" aria-hidden="true"></svg>
+            <svg id="skyWheel" viewBox="0 0 3840 3840" role="img" aria-label="Sun and Moon positions across nakshatras"></svg>
+            <div id="sunVisual" class="sun-visual" aria-hidden="true"></div>
+            <div class="earth-core">
+              <div class="earth-globe" aria-hidden="true">
+                <canvas id="earthCanvas" width="1024" height="1024"></canvas>
+                <div class="earth-location-marker"></div>
+                <div class="earth-shine"></div>
+              </div>
+              <strong id="localTimeLabel">--:--</strong>
+            </div>
+          </div>
+        </section>
+
+        <aside class="panchang-panel" aria-label="Panchang summary">
+          <div class="panel-title compact">
+            <div>
+              <p class="eyebrow">Current Reading</p>
+              <h2>Panchang</h2>
+            </div>
+          </div>
+          <dl class="panchang-list">
+            <div>
+              <dt>Tithi</dt>
+              <dd id="tithiValue">--</dd>
+            </div>
+            <div>
+              <dt>Paksha</dt>
+              <dd id="pakshaValue">--</dd>
+            </div>
+            <div>
+              <dt>Moon Nakshatra</dt>
+              <dd id="nakshatraValue">--</dd>
+            </div>
+            <div>
+              <dt>Moon Rashi</dt>
+              <dd id="moonRashiValue">--</dd>
+            </div>
+            <div>
+              <dt>Sun Rashi</dt>
+              <dd id="sunRashiValue">--</dd>
+            </div>
+            <div>
+              <dt>Gujarati Month</dt>
+              <dd id="monthValue">--</dd>
+            </div>
+          </dl>
+          <div class="mini-orbits">
+            <div>
+              <span>Sun</span>
+              <strong id="sunDegree">--</strong>
+            </div>
+            <div>
+              <span>Moon</span>
+              <strong id="moonDegree">--</strong>
+            </div>
+          </div>
+          <div class="rashi-focus" aria-label="Highlighted rashi signs">
+            <div class="rashi-focus-card sun">
+              <span>Solar Rashi</span>
+              <strong id="sunRashiFocus">--</strong>
+            </div>
+            <div class="rashi-focus-card moon">
+              <span>Moon Rashi</span>
+              <strong id="moonRashiFocus">--</strong>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="journey-panel">
+        <div class="panel-title">
+          <div>
+            <p class="eyebrow">Full Local Day</p>
+            <h2>Moon Through 24 Hours</h2>
+          </div>
+          <div class="journey-times">
+            <span id="dayStartLabel">00:00</span>
+            <span id="dayEndLabel">24:00</span>
+          </div>
+        </div>
+        <div class="journey-scroll" id="journeyScroll" tabindex="0" aria-label="Scrollable moon journey timeline">
+          <div class="journey-track" id="journeyTrack"></div>
+        </div>
+      </section>
+
+      <section class="calendar-band">
+        <div class="panel-title">
+          <div>
+            <p class="eyebrow">Gujarati Hindu Calendar</p>
+            <h2>Month Cycle</h2>
+          </div>
+        </div>
+        <div class="month-row" id="monthRow"></div>
+      </section>
+    </main>
+
+    <script src="./assets/nakshatra-stars.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
