@@ -11,8 +11,8 @@ export const APP_CONFIG = {
     inputSyncIntervalMs: 400
   },
   defaults: {
-    locationName: "Ahmedabad, India",
-    lat: 23.0225,
-    lon: 72.5714
+    locationName: "Ujjain, India",
+    lat: 23.1765,
+    lon: 75.7885
   }
 };

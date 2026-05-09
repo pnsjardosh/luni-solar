@@ -33,7 +33,7 @@ The app reads and writes these query parameters:
 Example:
 
 ```text
-http://127.0.0.1:4173/?loc=Ahmedabad&lat=23.0225&lon=72.5714&at=2026-05-09T18%3A00%3A00.000Z
+http://127.0.0.1:4173/?loc=Ujjain&lat=23.1765&lon=75.7885&at=2026-05-09T18%3A00%3A00.000Z
 ```
 
 ## Website Embed
@@ -60,9 +60,9 @@ Files:
 
 <luni-solar-embed
   app-base="/luni-solar/index.html"
-  location="Ahmedabad, India"
-  lat="23.0225"
-  lon="72.5714"
+  location="Ujjain, India"
+  lat="23.1765"
+  lon="75.7885"
   date="2026-05-21T14:55:03.058Z"
   height="1280">
 </luni-solar-embed>
@@ -74,7 +74,7 @@ If the GoDaddy editor does not allow `type="module"` scripts, use a direct ifram
 
 ```html
 <iframe
-  src="/luni-solar/index.html?embed=1&loc=Ahmedabad%2C%20India&lat=23.0225&lon=72.5714&at=2026-05-21T14%3A55%3A03.058Z"
+  src="/luni-solar/index.html?embed=1&loc=Ujjain%2C%20India&lat=23.1765&lon=75.7885&at=2026-05-21T14%3A55%3A03.058Z"
   style="width:100%;min-height:1280px;border:0;background:#020307"
   loading="lazy"
   allow="geolocation"
