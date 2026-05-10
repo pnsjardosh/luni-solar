@@ -91,8 +91,8 @@ body.embed-mode .app-shell {
 }
 
 .topbar > div:first-child {
-  flex: 1 1 300px;
-  min-width: 240px;
+  flex: 1 1 260px;
+  min-width: 200px;
 }
 
 body.embed-mode .topbar {
@@ -128,10 +128,10 @@ h2 {
 
 .control-strip {
   display: flex;
-  flex: 1 1 720px;
+  flex: 1 1 640px;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
   align-items: end;
   max-width: 100%;
   min-width: 0;
@@ -140,14 +140,8 @@ h2 {
 .location-field {
   position: relative;
   order: 1;
-  flex: 1 1 300px;
-  min-width: 220px;
-}
-
-.control-strip > label:not(.location-field) {
-  order: 4;
-  flex: 0 1 220px;
-  min-width: 190px;
+  flex: 1 1 250px;
+  min-width: 180px;
 }
 
 .location-results {
@@ -302,8 +296,22 @@ button {
   order: 2;
 }
 
-#nowButton {
-  order: 5;
+.datetime-group {
+  order: 4;
+  flex: 1 1 250px;
+  min-width: 180px;
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+
+.datetime-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.datetime-field input {
+  width: 100%;
 }
 
 .icon-button {
@@ -395,9 +403,11 @@ button:focus-visible,
   height: 34px;
   border-radius: 50%;
   flex: 0 0 auto;
-  background:
-    radial-gradient(circle at 36% 34%, rgba(255, 255, 255, 0.95) 0 9%, transparent 10%),
-    linear-gradient(90deg, var(--moon-dark, #44505f) 0 var(--shadow-stop, 50%), var(--moon-lit, #f4f1e7) var(--shadow-stop, 50%) 100%);
+  background-color: #1f2732;
+  background-image: var(--moon-image, none);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
   box-shadow: 0 0 16px rgba(255, 255, 255, 0.32);
 }
 
@@ -433,7 +443,7 @@ button:focus-visible,
   --wheel-zoom: 1;
   --wheel-pan-x: 0px;
   --wheel-pan-y: 0px;
-  overflow: hidden;
+  overflow: visible;
   touch-action: none;
 }
 
@@ -847,6 +857,10 @@ dd {
   gap: 8px;
 }
 
+.gregorian-month-panel {
+  overflow-x: auto;
+}
+
 .month-day {
   min-height: 128px;
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -858,13 +872,25 @@ dd {
 .month-day header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 8px;
   margin-bottom: 6px;
 }
 
 .month-day header strong {
   color: white;
   font-size: 0.94rem;
+}
+
+.month-day header span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.month-day .mini-moon {
+  margin-left: auto;
 }
 
 .month-day p {
@@ -894,9 +920,13 @@ dd {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background:
+  background-image:
+    var(--moon-image, none),
     radial-gradient(circle at 36% 34%, rgba(255, 255, 255, 0.95) 0 9%, transparent 10%),
     linear-gradient(90deg, var(--moon-dark, #44505f) 0 var(--shadow-stop, 50%), var(--moon-lit, #f4f1e7) var(--shadow-stop, 50%) 100%);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.22);
 }
 
@@ -1098,42 +1128,51 @@ dd {
 
 .wheel-label {
   fill: #f9f2dc;
-  font-size: 40px;
+  font-size: 24px;
   font-weight: 700;
   dominant-baseline: middle;
+  alignment-baseline: middle;
   paint-order: stroke fill;
   stroke: rgba(3, 7, 16, 0.88);
   stroke-width: 8px;
   text-anchor: middle;
+  text-align: center;
 }
 
 .wheel-label-sa {
   fill: rgba(246, 200, 76, 0.92);
-  font-size: 24px;
+  font-size: 14px;
   font-weight: 700;
 }
 
 .rashi-label {
   fill: #f6c84c;
-  font-size: 34px;
+  font-size: 30px;
   font-weight: 700;
   dominant-baseline: middle;
+  alignment-baseline: middle;
   paint-order: stroke fill;
   stroke: rgba(3, 7, 16, 0.82);
   stroke-width: 5px;
   text-anchor: middle;
+  text-align: center;
 }
 
-.rashi-label-hi {
-  fill: rgba(245, 236, 198, 0.92);
-  font-size: 22px;
-  font-weight: 600;
+.rashi-arc-label {
+  fill: #f6c84c;
+  font-size: 50px;
+  font-weight: 700;
+  letter-spacing: 0;
+  dominant-baseline: middle;
+  paint-order: stroke fill;
+  stroke: rgba(3, 7, 16, 0.9);
+  stroke-width: 4px;
 }
 
 .rashi-symbol {
   fill: rgba(245, 247, 255, 0.94);
   font-family: "Noto Sans Symbols 2", "Noto Sans Symbols", "Segoe UI Symbol", "DejaVu Sans", serif;
-  font-size: 102px;
+  font-size: 90px;
   font-weight: 400;
   alignment-baseline: middle;
   dominant-baseline: middle;
@@ -1173,6 +1212,52 @@ dd {
   fill: rgba(192, 215, 234, 0.18);
   stroke: rgba(180, 220, 255, 0.78);
   filter: drop-shadow(0 0 14px rgba(180, 220, 255, 0.42));
+}
+
+.rashi-slice-frame {
+  fill: rgba(166, 197, 226, 0.08);
+  stroke: rgba(196, 219, 239, 0.34);
+  stroke-width: 4px;
+}
+
+.rashi-slice-frame.active-sun {
+  fill: rgba(246, 200, 76, 0.18);
+  stroke: rgba(246, 200, 76, 0.86);
+  filter: drop-shadow(0 0 10px rgba(246, 200, 76, 0.36));
+}
+
+.rashi-slice-frame.active-moon {
+  fill: rgba(180, 220, 255, 0.16);
+  stroke: rgba(180, 220, 255, 0.82);
+  filter: drop-shadow(0 0 10px rgba(180, 220, 255, 0.34));
+}
+
+.nakshatra-slice-frame {
+  fill: rgba(143, 182, 214, 0.09);
+  stroke: rgba(190, 216, 239, 0.36);
+  stroke-width: 3px;
+}
+
+.nakshatra-slice-frame.active {
+  fill: rgba(246, 200, 76, 0.16);
+  stroke: rgba(246, 200, 76, 0.86);
+  filter: drop-shadow(0 0 8px rgba(246, 200, 76, 0.28));
+}
+
+.nakshatra-arc-label {
+  fill: rgba(241, 251, 255, 0.95);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0;
+  dominant-baseline: middle;
+  paint-order: stroke fill;
+  stroke: rgba(2, 7, 15, 0.92);
+  stroke-width: 4px;
+}
+
+.nakshatra-arc-label.active {
+  fill: #ffd977;
+  stroke: rgba(38, 24, 4, 0.92);
 }
 
 .rashi-focus {
@@ -1252,6 +1337,10 @@ dd {
     justify-content: flex-start;
   }
 
+  .datetime-group {
+    flex: 1 1 280px;
+  }
+
   .transport {
     justify-content: start;
   }
@@ -1282,14 +1371,10 @@ dd {
     flex: 0 0 auto;
   }
 
-  .control-strip > label:not(.location-field) {
+  .datetime-group {
     order: 4;
     flex: 1 1 100%;
-    min-width: 0;
-  }
-
-  #nowButton {
-    order: 5;
+    min-width: 180px;
   }
 
   .transport {
@@ -1332,11 +1417,13 @@ dd {
   }
 
   .month-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width: 760px;
+    grid-template-columns: repeat(7, minmax(96px, 1fr));
   }
 
   .month-weekdays {
-    display: none;
+    min-width: 760px;
+    grid-template-columns: repeat(7, minmax(96px, 1fr));
   }
 
   .earth-core {
@@ -1349,10 +1436,10 @@ dd {
   }
 
   .rashi-label-hi {
-    font-size: 20px;
+    font-size: 16px;
   }
 
   .rashi-symbol {
-    font-size: 88px;
+    font-size: 78px;
   }
 }

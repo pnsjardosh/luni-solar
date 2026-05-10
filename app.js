@@ -25,6 +25,9 @@ const nakshatraCommon = [
 ];
 
 const rashis = [
+  "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
+];
+const rashiVedic = [
   "Mesha", "Vrishabha", "Mithuna", "Karka", "Simha", "Kanya", "Tula", "Vrishchika", "Dhanu", "Makara", "Kumbha", "Meena"
 ];
 const rashisHindi = [
@@ -47,10 +50,10 @@ const CHART = {
   starFieldRadius: 210 * CHART_SCALE,
   sunOrbitRadius: 154 * CHART_SCALE,
   moonOrbitRadius: 122 * CHART_SCALE,
-  nakshatraLabelRadius: 272 * CHART_SCALE,
-  rashiLabelRadius: 216 * CHART_SCALE,
-  rashiSymbolRadius: 162 * CHART_SCALE,
-  rashiBadgeRadius: 162 * CHART_SCALE
+  nakshatraLabelRadius: 334 * CHART_SCALE,
+  rashiLabelRadius: 202 * CHART_SCALE,
+  rashiSymbolRadius: 188 * CHART_SCALE,
+  rashiBadgeRadius: 188 * CHART_SCALE
 };
 
 const tithis = [
@@ -398,7 +401,7 @@ function projectLocationOnGlobe(location, view) {
 }
 
 function formatRashiName(index) {
-  return `${rashis[index]} / ${rashiCommon[index]} / ${rashiSanskritNames[index]}`;
+  return `${rashis[index]} / ${rashiVedic[index]} / ${rashiSanskritNames[index]}`;
 }
 
 function updateEarthCore(date, location) {
@@ -541,6 +544,13 @@ function arcPath(cx, cy, inner, outer, start, end) {
   const [i1x, i1y] = polar(cx, cy, inner, start);
   const large = end - start > 180 ? 1 : 0;
   return `M ${o1x} ${o1y} A ${outer} ${outer} 0 ${large} 1 ${o2x} ${o2y} L ${i2x} ${i2y} A ${inner} ${inner} 0 ${large} 0 ${i1x} ${i1y} Z`;
+}
+
+function arcLinePath(cx, cy, radius, start, end) {
+  const [x1, y1] = polar(cx, cy, radius, start);
+  const [x2, y2] = polar(cx, cy, radius, end);
+  const large = end - start > 180 ? 1 : 0;
+  return `M ${x1} ${y1} A ${radius} ${radius} 0 ${large} 1 ${x2} ${y2}`;
 }
 
 function lunarAngle(date) {
@@ -974,41 +984,42 @@ function drawWheel(state, date, location) {
 
   make("circle", { cx, cy, r: CHART.outerRadius, fill: "rgba(1, 2, 7, 0.82)", stroke: "rgba(168, 206, 228, 0.18)", "stroke-width": 0.9 * CHART.scale });
   make("circle", { cx, cy, r: CHART.nakshatraInnerRadius - CHART.scale, fill: "rgba(0, 0, 0, 0.78)", stroke: "rgba(255,255,255,0.18)", "stroke-width": CHART.scale });
+  const defs = make("defs");
 
   nakshatras.forEach((name, index) => {
     const start = index * 360 / 27;
     const end = (index + 1) * 360 / 27;
     const active = index === state.nakIndex;
     make("path", {
+      d: arcPath(
+        cx,
+        cy,
+        CHART.outerRadius + 4 * CHART.scale,
+        CHART.outerRadius + 26 * CHART.scale,
+        start + 0.9,
+        end - 0.9
+      ),
+      class: `nakshatra-slice-frame${active ? " active" : ""}`
+    });
+    make("path", {
       d: arcPath(cx, cy, CHART.nakshatraInnerRadius, CHART.outerRadius, start, end),
       fill: active ? "rgba(246, 200, 76, 0.2)" : index % 2 ? "rgba(255,255,255,0.024)" : "rgba(124,220,255,0.03)",
       stroke: active ? "rgba(246, 200, 76, 0.95)" : "rgba(255,255,255,0.18)",
       "stroke-width": active ? 4 * CHART.scale : 2 * CHART.scale
     });
-    const labelAngle = start + (end - start) / 2;
-    const tier = index % 3;
-    const ringOffset = (18 + tier * 14) * CHART.scale;
-    const jitter = Math.sin((index + 1) * 1.7) * 10 * CHART.scale;
-    const radius = CHART.nakshatraLabelRadius + ringOffset + jitter;
-    const [rawX, rawY] = polar(cx, cy, radius, labelAngle);
-    const lx = clamp(rawX, 180 * CHART.scale, CHART.size - 180 * CHART.scale);
-    const ly = clamp(rawY, 170 * CHART.scale, CHART.size - 170 * CHART.scale);
-    const text = make("text", { x: lx, y: ly, class: "wheel-label" });
-    text.setAttribute("data-base-x", lx.toFixed(2));
-    text.setAttribute("data-base-y", ly.toFixed(2));
-    const horizontalBias = lx < cx - 90 * CHART.scale ? "end" : lx > cx + 90 * CHART.scale ? "start" : "middle";
-    text.setAttribute("text-anchor", horizontalBias);
-    const en = document.createElementNS(ns, "tspan");
-    en.setAttribute("x", lx);
-    en.setAttribute("dy", "0");
-    en.textContent = name;
-    const sa = document.createElementNS(ns, "tspan");
-    sa.setAttribute("x", lx);
-    sa.setAttribute("dy", `${34 * CHART.scale / 5.333}`);
-    sa.setAttribute("class", "wheel-label-sa");
-    sa.textContent = nakshatraSanskrit[index];
-    text.appendChild(en);
-    text.appendChild(sa);
+    const labelPathId = `nak-outer-arc-${index}`;
+    const arc = document.createElementNS(ns, "path");
+    arc.setAttribute("id", labelPathId);
+    arc.setAttribute("d", arcLinePath(cx, cy, CHART.outerRadius + 14 * CHART.scale, start + 2.1, end - 2.1));
+    defs.appendChild(arc);
+
+    const text = make("text", { class: `nakshatra-arc-label${active ? " active" : ""}` });
+    const textPath = document.createElementNS(ns, "textPath");
+    textPath.setAttribute("href", `#${labelPathId}`);
+    textPath.setAttribute("startOffset", "50%");
+    textPath.setAttribute("text-anchor", "middle");
+    textPath.textContent = `${name} · ${nakshatraSanskrit[index]}`;
+    text.appendChild(textPath);
   });
 
   rashis.forEach((name, index) => {
@@ -1021,19 +1032,30 @@ function drawWheel(state, date, location) {
       fill: activeSun ? "rgba(255, 179, 71, 0.2)" : activeMoon ? "rgba(180, 220, 255, 0.14)" : "rgba(0,0,0,0.16)",
       stroke: activeSun ? "rgba(255, 179, 71, 0.45)" : activeMoon ? "rgba(180, 220, 255, 0.4)" : "rgba(172, 201, 222, 0.16)"
     });
+    make("path", {
+      d: arcPath(
+        cx,
+        cy,
+        CHART.rashiInnerRadius + 2 * CHART.scale,
+        CHART.rashiOuterRadius - 2 * CHART.scale,
+        start + 1.6,
+        end - 1.6
+      ),
+      class: `rashi-slice-frame${activeSun ? " active-sun" : ""}${activeMoon ? " active-moon" : ""}`
+    });
     const [lx, ly] = polar(cx, cy, CHART.rashiLabelRadius, start + 15);
-    const text = make("text", { x: lx, y: ly, class: "rashi-label" });
-    const en = document.createElementNS(ns, "tspan");
-    en.setAttribute("x", lx);
-    en.setAttribute("dy", "0");
-    en.textContent = name;
-    const hi = document.createElementNS(ns, "tspan");
-    hi.setAttribute("x", lx);
-    hi.setAttribute("dy", `${18 * CHART.scale / 5.333}`);
-    hi.setAttribute("class", "rashi-label-hi");
-    hi.textContent = rashiSanskritNames[index];
-    text.appendChild(en);
-    text.appendChild(hi);
+    const rashiLabelPathId = `rashi-arc-${index}`;
+    const rashiArc = document.createElementNS(ns, "path");
+    rashiArc.setAttribute("id", rashiLabelPathId);
+    rashiArc.setAttribute("d", arcLinePath(cx, cy, CHART.rashiLabelRadius, start + 2.5, end - 2.5));
+    defs.appendChild(rashiArc);
+    const text = make("text", { class: "rashi-arc-label" });
+    const textPath = document.createElementNS(ns, "textPath");
+    textPath.setAttribute("href", `#${rashiLabelPathId}`);
+    textPath.setAttribute("startOffset", "50%");
+    textPath.setAttribute("text-anchor", "middle");
+    textPath.textContent = `${name} · ${rashiSanskritNames[index]}`;
+    text.appendChild(textPath);
     const [sx, sy] = polar(cx, cy, CHART.rashiSymbolRadius, start + 15);
     make("circle", {
       cx: sx,
@@ -1503,6 +1525,7 @@ function drawGregorianMonth(date, location) {
   const start = new Date(firstOfMonth);
   start.setDate(1 - firstOfMonth.getDay());
 
+  const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   for (let i = 0; i < 42; i += 1) {
     const day = new Date(start);
     day.setDate(start.getDate() + i);
@@ -1510,6 +1533,7 @@ function drawGregorianMonth(date, location) {
     sample.setHours(12, 0, 0, 0);
     const state = approximateState(sample);
     const phase = moonPhaseVisual(state.angle);
+    const moonUrl = nasaMoonFrameUrl(sample);
     const muhurta = computeMuhurta(sample, location);
     const inMonth = day.getMonth() === month;
     const isToday =
@@ -1522,7 +1546,8 @@ function drawGregorianMonth(date, location) {
     card.innerHTML = `
       <header>
         <strong>${day.getDate()}</strong>
-        <div class="mini-moon" style="--shadow-stop:${phase.stop}%;--moon-lit:${phase.lit};--moon-dark:${phase.dark};"></div>
+        <span>${weekdayNames[day.getDay()]}</span>
+        <div class="mini-moon" style="--shadow-stop:${phase.stop}%;--moon-lit:${phase.lit};--moon-dark:${phase.dark};--moon-image:${moonUrl ? `url('${moonUrl}')` : "none"};"></div>
       </header>
       <p>${tithis[state.tithiIndex]} (${state.paksha.split(" ")[0]})</p>
       <p>${nakshatras[state.nakIndex]}</p>
@@ -1541,10 +1566,12 @@ function updateText(state, date, location) {
   document.querySelector("#phaseChipTitle").textContent = state.phase;
   document.querySelector("#phaseChipMeta").textContent = "Moon phase";
   const phase = moonPhaseVisual(state.angle);
+  const moonUrl = nasaMoonFrameUrl(date);
   if (phaseChipVisual) {
     phaseChipVisual.style.setProperty("--shadow-stop", `${phase.stop}%`);
     phaseChipVisual.style.setProperty("--moon-lit", phase.lit);
     phaseChipVisual.style.setProperty("--moon-dark", phase.dark);
+    phaseChipVisual.style.setProperty("--moon-image", moonUrl ? `url("${moonUrl}")` : "none");
   }
   document.querySelector("#localTimeLabel").textContent = formatTime(date);
   document.querySelector("#tithiValue").textContent = `${state.paksha.split(" ")[0]} ${tithis[state.tithiIndex]} / ${tithiCommon[state.tithiIndex]}`;

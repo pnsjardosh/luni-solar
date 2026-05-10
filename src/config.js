@@ -5,7 +5,7 @@ export const APP_CONFIG = {
     sunTexture: "./assets/sun-disk.jpg"
   },
   playback: {
-    normalMsPerRealMs: 600,
+    normalMsPerRealMs: 900,
     dayMsPerRealMs: 86400,
     visualRenderIntervalMs: 320,
     inputSyncIntervalMs: 400
