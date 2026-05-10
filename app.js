@@ -277,6 +277,11 @@ function formatWindow(start, end) {
   return `${formatTime(start)} - ${formatTime(end)}`;
 }
 
+function setText(selector, value) {
+  const element = document.querySelector(selector);
+  if (element) element.textContent = value;
+}
+
 function formatLocationClock(date, location) {
   const key = locationCacheKey(location);
   const locationTimeZone = locationTimezoneCache.get(key);
@@ -1683,8 +1688,14 @@ function updateNowVisibility(date) {
 }
 
 function updateText(state, date, location) {
-  document.querySelector("#pakshaLabel").textContent = state.paksha.split(" ")[0];
-  document.querySelector("#phaseLabel").textContent = state.phase.startsWith("Waning") ? "Waning moon" : "Waxing moon";
+  const pakshaShort = state.paksha.split(" ")[0];
+  const phaseText = state.phase.startsWith("Waning") ? "Waning moon" : "Waxing moon";
+  const pakshaLabel = document.querySelector("#pakshaLabel");
+  if (pakshaLabel) pakshaLabel.textContent = pakshaShort;
+  else setText("#pakshaValue", `${pakshaShort} / ${phaseText}`);
+  setText("#phaseLabel", phaseText);
+  setText("#phaseChipTitle", state.phase);
+  setText("#phaseChipMeta", "Moon phase");
   const phase = moonPhaseVisual(state.angle);
   if (phaseChipVisual) {
     const moonUrl = nasaMoonFrameUrl(date);
@@ -1695,20 +1706,20 @@ function updateText(state, date, location) {
       phaseChipVisual.src = moonUrl;
     }
   }
-  document.querySelector("#localTimeLabel").textContent = formatLocationClock(date, location);
+  setText("#localTimeLabel", formatLocationClock(date, location));
   const tithiWindow = currentTithiWindow(date);
-  document.querySelector("#tithiValue").textContent = `${state.paksha.split(" ")[0]} ${tithis[state.tithiIndex]} / ${tithiCommon[state.tithiIndex]} (${formatLocationDateTime(tithiWindow.start, location)} - ${formatLocationDateTime(tithiWindow.end, location)})`;
-  document.querySelector("#nakshatraValue").textContent = `${nakshatras[state.nakIndex]} / ${nakshatraSanskrit[state.nakIndex]} / ${nakshatraCommon[state.nakIndex]}`;
-  document.querySelector("#moonRashiValue").textContent = formatRashiName(state.moonRashiIndex);
-  document.querySelector("#sunRashiValue").textContent = formatRashiName(state.sunRashiIndex);
-  document.querySelector("#moonRashiFocus").textContent = `${rashiSigns[state.moonRashiIndex]} ${formatRashiName(state.moonRashiIndex)}`;
-  document.querySelector("#sunRashiFocus").textContent = `${rashiSigns[state.sunRashiIndex]} ${formatRashiName(state.sunRashiIndex)}`;
-  document.querySelector("#monthValue").textContent = formatMonthName(state);
-  document.querySelector("#latValue").textContent = formatCoordinate(location.lat, "lat");
-  document.querySelector("#lonValue").textContent = formatCoordinate(location.lon, "lon");
-  document.querySelector("#timezoneValue").textContent = timezoneStatus(date, location);
-  document.querySelector("#sunDegree").textContent = `${state.sun.toFixed(1)}°`;
-  document.querySelector("#moonDegree").textContent = `${state.moon.toFixed(1)}°`;
+  setText("#tithiValue", `${state.paksha.split(" ")[0]} ${tithis[state.tithiIndex]} / ${tithiCommon[state.tithiIndex]} (${formatLocationDateTime(tithiWindow.start, location)} - ${formatLocationDateTime(tithiWindow.end, location)})`);
+  setText("#nakshatraValue", `${nakshatras[state.nakIndex]} / ${nakshatraSanskrit[state.nakIndex]} / ${nakshatraCommon[state.nakIndex]}`);
+  setText("#moonRashiValue", formatRashiName(state.moonRashiIndex));
+  setText("#sunRashiValue", formatRashiName(state.sunRashiIndex));
+  setText("#moonRashiFocus", `${rashiSigns[state.moonRashiIndex]} ${formatRashiName(state.moonRashiIndex)}`);
+  setText("#sunRashiFocus", `${rashiSigns[state.sunRashiIndex]} ${formatRashiName(state.sunRashiIndex)}`);
+  setText("#monthValue", formatMonthName(state));
+  setText("#latValue", formatCoordinate(location.lat, "lat"));
+  setText("#lonValue", formatCoordinate(location.lon, "lon"));
+  setText("#timezoneValue", timezoneStatus(date, location));
+  setText("#sunDegree", `${state.sun.toFixed(1)}°`);
+  setText("#moonDegree", `${state.moon.toFixed(1)}°`);
 }
 
 function drawJourney(date) {
