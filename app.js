@@ -13,6 +13,16 @@ const nakshatras = [
   "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha",
   "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"
 ];
+const nakshatraSanskrit = [
+  "अश्विनी", "भरणी", "कृत्तिका", "रोहिणी", "मृगशीर्ष", "आर्द्रा", "पुनर्वसु", "पुष्य", "आश्लेषा",
+  "मघा", "पूर्व फाल्गुनी", "उत्तर फाल्गुनी", "हस्त", "चित्रा", "स्वाति", "विशाखा", "अनुराधा", "ज्येष्ठा",
+  "मूल", "पूर्वाषाढ़ा", "उत्तराषाढ़ा", "श्रवण", "धनिष्ठा", "शतभिषा", "पूर्व भाद्रपदा", "उत्तर भाद्रपदा", "रेवती"
+];
+const nakshatraCommon = [
+  "Beta Arietis region", "Aries region", "Pleiades", "Aldebaran region", "Orion region", "Betelgeuse region", "Gemini region", "Cancer region", "Hydra region",
+  "Regulus region", "Leo region", "Denebola region", "Corvus region", "Spica region", "Arcturus region", "Libra region", "Scorpius region", "Antares region",
+  "Galactic center region", "Sagittarius region", "Sagittarius-Capricorn region", "Altair region", "Delphinus region", "Aquarius region", "Pegasus region", "Pegasus-Andromeda region", "Pisces region"
+];
 
 const rashis = [
   "Mesha", "Vrishabha", "Mithuna", "Karka", "Simha", "Kanya", "Tula", "Vrishchika", "Dhanu", "Makara", "Kumbha", "Meena"
@@ -22,6 +32,8 @@ const rashisHindi = [
 ];
 
 const rashiSigns = ["\u2648\ufe0e", "\u2649\ufe0e", "\u264a\ufe0e", "\u264b\ufe0e", "\u264c\ufe0e", "\u264d\ufe0e", "\u264e\ufe0e", "\u264f\ufe0e", "\u2650\ufe0e", "\u2651\ufe0e", "\u2652\ufe0e", "\u2653\ufe0e"];
+const rashiSanskritNames = ["मेष", "वृषभ", "मिथुन", "कर्क", "सिंह", "कन्या", "तुला", "वृश्चिक", "धनु", "मकर", "कुम्भ", "मीन"];
+const rashiCommon = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 
 const CHART_SCALE = 3840 / 720;
 const CHART = {
@@ -35,10 +47,10 @@ const CHART = {
   starFieldRadius: 210 * CHART_SCALE,
   sunOrbitRadius: 154 * CHART_SCALE,
   moonOrbitRadius: 122 * CHART_SCALE,
-  nakshatraLabelRadius: 288 * CHART_SCALE,
-  rashiLabelRadius: 205 * CHART_SCALE,
-  rashiSymbolRadius: 170 * CHART_SCALE,
-  rashiBadgeRadius: 170 * CHART_SCALE
+  nakshatraLabelRadius: 272 * CHART_SCALE,
+  rashiLabelRadius: 216 * CHART_SCALE,
+  rashiSymbolRadius: 162 * CHART_SCALE,
+  rashiBadgeRadius: 162 * CHART_SCALE
 };
 
 const tithis = [
@@ -46,6 +58,12 @@ const tithis = [
   "Ekadashi", "Dvadashi", "Trayodashi", "Chaturdashi", "Purnima",
   "Pratipada", "Dvitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami", "Ashtami", "Navami", "Dashami",
   "Ekadashi", "Dvadashi", "Trayodashi", "Chaturdashi", "Amavasya"
+];
+const tithiCommon = [
+  "1st lunar day", "2nd lunar day", "3rd lunar day", "4th lunar day", "5th lunar day", "6th lunar day", "7th lunar day", "8th lunar day", "9th lunar day", "10th lunar day",
+  "11th lunar day", "12th lunar day", "13th lunar day", "14th lunar day", "Full moon",
+  "1st lunar day", "2nd lunar day", "3rd lunar day", "4th lunar day", "5th lunar day", "6th lunar day", "7th lunar day", "8th lunar day", "9th lunar day", "10th lunar day",
+  "11th lunar day", "12th lunar day", "13th lunar day", "14th lunar day", "New moon"
 ];
 
 const gujaratiMonths = [
@@ -70,7 +88,10 @@ const wheelWrap = document.querySelector(".wheel-wrap");
 const dateInput = document.querySelector("#dateInput");
 const nowButton = document.querySelector("#nowButton");
 const geoButton = document.querySelector("#geoButton");
+const phaseChipVisual = document.querySelector("#phaseChipVisual");
 const locationInput = document.querySelector("#locationInput");
+const locationResults = document.querySelector("#locationResults");
+const manualCoordinates = document.querySelector(".manual-coordinates");
 const latInput = document.querySelector("#latInput");
 const lonInput = document.querySelector("#lonInput");
 const reverseButton = document.querySelector("#reverseButton");
@@ -97,6 +118,17 @@ const moonImageCache = new Map();
 let starsInitialized = false;
 let nakshatraSkyInitialized = false;
 let embedHeightFrame = null;
+let locationSearchTimer = null;
+let lastLocationQuery = "";
+const nowThresholdMs = 5 * 60000;
+let wheelZoom = 1;
+let wheelPanX = 0;
+let wheelPanY = 0;
+let isWheelDragging = false;
+let wheelDragStartX = 0;
+let wheelDragStartY = 0;
+let wheelPanStartX = 0;
+let wheelPanStartY = 0;
 
 const brightStars = [
   { name: "Sirius", ra: 6.7525, dec: -16.7161, mag: -1.46 },
@@ -223,6 +255,21 @@ function currentLocation() {
   };
 }
 
+function formatCoordinate(value, axis) {
+  const positive = axis === "lat" ? "N" : "E";
+  const negative = axis === "lat" ? "S" : "W";
+  const direction = value >= 0 ? positive : negative;
+  return `${Math.abs(value).toFixed(4)}° ${direction}`;
+}
+
+function formatTime(date) {
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function formatWindow(start, end) {
+  return `${formatTime(start)} - ${formatTime(end)}`;
+}
+
 function localSiderealTime(date, lon) {
   const jd = julianDay(date);
   const t = (jd - 2451545.0) / 36525;
@@ -323,14 +370,40 @@ function localSunAltitude(date, location) {
   );
 }
 
+function earthViewCenter(location) {
+  return {
+    lat: clamp(location.lat, -75, 75),
+    lon: location.lon
+  };
+}
+
+function projectLocationOnGlobe(location, view) {
+  const lat = location.lat * Math.PI / 180;
+  const lon = location.lon * Math.PI / 180;
+  const lat0 = view.lat * Math.PI / 180;
+  const lon0 = view.lon * Math.PI / 180;
+  const dLon = lon - lon0;
+  const x = Math.cos(lat) * Math.sin(dLon);
+  const y = Math.sin(lat) * Math.cos(lat0) - Math.cos(lat) * Math.sin(lat0) * Math.cos(dLon);
+  const z = Math.sin(lat) * Math.sin(lat0) + Math.cos(lat) * Math.cos(lat0) * Math.cos(dLon);
+
+  return {
+    x: 50 + x * 48,
+    y: 50 - y * 48,
+    visible: z > 0
+  };
+}
+
 function formatRashiName(index) {
-  return `${rashis[index]} / ${rashisHindi[index]}`;
+  return `${rashis[index]} / ${rashiCommon[index]} / ${rashiSanskritNames[index]}`;
 }
 
 function updateEarthCore(date, location) {
   renderEarthGlobe(date, location);
-  earthCore.style.setProperty("--marker-x", "50%");
-  earthCore.style.setProperty("--marker-y", "50%");
+  const marker = projectLocationOnGlobe(location, earthViewCenter(location));
+  earthCore.style.setProperty("--marker-x", `${marker.x}%`);
+  earthCore.style.setProperty("--marker-y", `${marker.y}%`);
+  earthCore.style.setProperty("--marker-opacity", marker.visible ? "1" : "0.18");
   earthCore.style.setProperty("--earth-tilt", "0deg");
   earthCore.style.setProperty("--pin-counter-tilt", "45deg");
 }
@@ -347,7 +420,9 @@ function updateSunVisual(state) {
 
 function updateTransportButton() {
   const playing = playbackDirection !== 0;
-  pauseButton.innerHTML = playing ? "||" : "&#9654;";
+  pauseButton.innerHTML = playing
+    ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14"></path><path d="M16 5v14"></path></svg>'
+    : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7Z"></path></svg>';
   pauseButton.title = playing ? "Pause" : "Play";
   pauseButton.setAttribute("aria-label", playing ? "Pause" : "Play");
 }
@@ -386,7 +461,8 @@ function renderEarthGlobe(date, location) {
   if (!texture) return;
 
   const coarseTime = Math.floor(date.getTime() / 600000);
-  const key = `${location.lat.toFixed(2)}:${location.lon.toFixed(2)}:${coarseTime}`;
+  const view = earthViewCenter(location);
+  const key = `${view.lat.toFixed(2)}:${view.lon.toFixed(2)}:${coarseTime}`;
   if (key === earthRenderKey) return;
   earthRenderKey = key;
 
@@ -394,8 +470,8 @@ function renderEarthGlobe(date, location) {
   const radius = size * 0.48;
   const center = size / 2;
   const output = earthContext.createImageData(size, size);
-  const lat0 = location.lat * Math.PI / 180;
-  const lon0 = location.lon * Math.PI / 180;
+  const lat0 = view.lat * Math.PI / 180;
+  const lon0 = view.lon * Math.PI / 180;
   const sinLat0 = Math.sin(lat0);
   const cosLat0 = Math.cos(lat0);
   const sun = subsolarPoint(date);
@@ -464,6 +540,46 @@ function arcPath(cx, cy, inner, outer, start, end) {
   return `M ${o1x} ${o1y} A ${outer} ${outer} 0 ${large} 1 ${o2x} ${o2y} L ${i2x} ${i2y} A ${inner} ${inner} 0 ${large} 0 ${i1x} ${i1y} Z`;
 }
 
+function lunarAngle(date) {
+  return wrap(moonLongitude(date) - sunLongitude(date));
+}
+
+function findAdjacentNewMoon(date, direction) {
+  const step = 12 * 3600000 * direction;
+  let end = new Date(date);
+  let endAngle = lunarAngle(end);
+
+  for (let i = 0; i < 80; i += 1) {
+    const start = new Date(end.getTime() - step);
+    const startAngle = lunarAngle(start);
+    const crossed = direction > 0 ? startAngle > endAngle : startAngle < endAngle;
+    if (crossed) {
+      let low = direction > 0 ? start : end;
+      let high = direction > 0 ? end : start;
+      for (let j = 0; j < 24; j += 1) {
+        const mid = new Date((low.getTime() + high.getTime()) / 2);
+        const lowAngle = lunarAngle(low);
+        const midAngle = lunarAngle(mid);
+        if (lowAngle > midAngle) high = mid;
+        else low = mid;
+      }
+      return new Date((low.getTime() + high.getTime()) / 2);
+    }
+    end = start;
+    endAngle = startAngle;
+  }
+
+  return new Date(date.getTime() + direction * 29.53 * 86400000);
+}
+
+function isAdhikMonth(date) {
+  const previousNewMoon = findAdjacentNewMoon(date, -1);
+  const nextNewMoon = findAdjacentNewMoon(date, 1);
+  const previousSunRashi = Math.floor(wrap(sunLongitude(previousNewMoon) - lahiriAyanamsha(previousNewMoon)) / 30);
+  const nextSunRashi = Math.floor(wrap(sunLongitude(nextNewMoon) - lahiriAyanamsha(nextNewMoon)) / 30);
+  return previousSunRashi === nextSunRashi;
+}
+
 function approximateState(date) {
   const sunTropical = sunLongitude(date);
   const moonTropical = moonLongitude(date);
@@ -486,6 +602,7 @@ function approximateState(date) {
     sunRashiIndex,
     moonRashiIndex,
     monthIndex,
+    isAdhikMonth: isAdhikMonth(date),
     paksha: tithiIndex < 15 ? "Shukla Paksha" : "Krishna Paksha",
     phase: angle < 20 || angle > 340 ? "New Moon" : angle < 170 ? "Waxing Moon" : angle < 190 ? "Full Moon" : "Waning Moon"
   };
@@ -499,6 +616,149 @@ function moonPhaseVisual(angle) {
     stop,
     lit: waxing ? "#f4f1e7" : "#44505f",
     dark: waxing ? "#44505f" : "#f4f1e7"
+  };
+}
+
+function dayOfYearUtc(date) {
+  const start = Date.UTC(date.getUTCFullYear(), 0, 0);
+  const current = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  return Math.floor((current - start) / 86400000);
+}
+
+function solarEventMinutes(date, location, isSunrise) {
+  const zenith = 90.833;
+  const n = dayOfYearUtc(date);
+  const lngHour = location.lon / 15;
+  const t = n + ((isSunrise ? 6 : 18) - lngHour) / 24;
+  const m = (0.9856 * t) - 3.289;
+  let l = wrap(m + 1.916 * sinDeg(m) + 0.020 * sinDeg(2 * m) + 282.634);
+  let ra = atan2Deg(0.91764 * Math.tan(l * Math.PI / 180), 1);
+  ra = wrap(ra);
+  const lQuadrant = Math.floor(l / 90) * 90;
+  const raQuadrant = Math.floor(ra / 90) * 90;
+  ra = (ra + lQuadrant - raQuadrant) / 15;
+
+  const sinDec = 0.39782 * sinDeg(l);
+  const cosDec = Math.cos(Math.asin(sinDec));
+  const cosH = (cosDeg(zenith) - sinDec * sinDeg(location.lat)) / (cosDec * cosDeg(location.lat));
+  if (cosH > 1 || cosH < -1) return null;
+
+  let h = isSunrise ? 360 - Math.acos(cosH) * 180 / Math.PI : Math.acos(cosH) * 180 / Math.PI;
+  h /= 15;
+  const localMean = h + ra - (0.06571 * t) - 6.622;
+  const utcHours = wrap(localMean - lngHour, 24);
+  return wrap(utcHours * 60 + location.lon * 4, 1440);
+}
+
+function formatMinutes(totalMinutes) {
+  if (!Number.isFinite(totalMinutes)) return "--";
+  const minutes = Math.round(wrap(totalMinutes, 1440));
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  const suffix = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 || 12;
+  return `${hour12}:${String(m).padStart(2, "0")} ${suffix}`;
+}
+
+function formatMinuteWindow(start, end) {
+  return `${formatMinutes(start)} - ${formatMinutes(end)}`;
+}
+
+function locationDayMinute(date, location) {
+  const minutes = date.getUTCHours() * 60 + date.getUTCMinutes() + date.getUTCSeconds() / 60;
+  return wrap(minutes + location.lon * 4, 1440);
+}
+
+function locationWeekday(date, location) {
+  return new Date(date.getTime() + location.lon * 4 * 60000).getUTCDay();
+}
+
+const chaughadiaLabels = {
+  Amrit: { quality: "Favorable", tone: "good", meaning: "Highly auspicious period for important actions." },
+  Shubh: { quality: "Favorable", tone: "good", meaning: "Good for ceremonies, meetings, and starts." },
+  Labh: { quality: "Gainful", tone: "good", meaning: "Good for finance, trade, and practical progress." },
+  Char: { quality: "Movable", tone: "neutral", meaning: "Supports travel, movement, and dynamic tasks." },
+  Udveg: { quality: "Avoid", tone: "avoid", meaning: "Restless period; avoid high-stakes new beginnings." },
+  Kaal: { quality: "Avoid", tone: "avoid", meaning: "Traditionally inauspicious for major starts." },
+  Rog: { quality: "Avoid", tone: "avoid", meaning: "Traditionally linked with obstacles and strain." }
+};
+
+const dayChaughadia = [
+  ["Udveg", "Char", "Labh", "Amrit", "Kaal", "Shubh", "Rog", "Udveg"],
+  ["Amrit", "Kaal", "Shubh", "Rog", "Udveg", "Char", "Labh", "Amrit"],
+  ["Rog", "Udveg", "Char", "Labh", "Amrit", "Kaal", "Shubh", "Rog"],
+  ["Labh", "Amrit", "Kaal", "Shubh", "Rog", "Udveg", "Char", "Labh"],
+  ["Shubh", "Rog", "Udveg", "Char", "Labh", "Amrit", "Kaal", "Shubh"],
+  ["Char", "Labh", "Amrit", "Kaal", "Shubh", "Rog", "Udveg", "Char"],
+  ["Kaal", "Shubh", "Rog", "Udveg", "Char", "Labh", "Amrit", "Kaal"]
+];
+
+const nightChaughadia = [
+  ["Shubh", "Amrit", "Char", "Rog", "Kaal", "Labh", "Udveg", "Shubh"],
+  ["Char", "Rog", "Kaal", "Labh", "Udveg", "Shubh", "Amrit", "Char"],
+  ["Kaal", "Labh", "Udveg", "Shubh", "Amrit", "Char", "Rog", "Kaal"],
+  ["Udveg", "Shubh", "Amrit", "Char", "Rog", "Kaal", "Labh", "Udveg"],
+  ["Amrit", "Char", "Rog", "Kaal", "Labh", "Udveg", "Shubh", "Amrit"],
+  ["Rog", "Kaal", "Labh", "Udveg", "Shubh", "Amrit", "Char", "Rog"],
+  ["Labh", "Udveg", "Shubh", "Amrit", "Char", "Rog", "Kaal", "Labh"]
+];
+
+const rahuSegments = [8, 2, 7, 5, 6, 4, 3];
+const yamagandaSegments = [5, 4, 3, 2, 1, 7, 6];
+const gulikaSegments = [7, 6, 5, 4, 3, 2, 1];
+
+function segmentWindow(start, length, oneBasedIndex) {
+  const segmentStart = start + length * (oneBasedIndex - 1);
+  return [segmentStart, segmentStart + length];
+}
+
+function computeMuhurta(date, location) {
+  const sunrise = solarEventMinutes(date, location, true) ?? 360;
+  const sunset = solarEventMinutes(date, location, false) ?? 1080;
+  const dayLength = sunset > sunrise ? sunset - sunrise : 720;
+  const nightLength = 1440 - dayLength;
+  const daySegment = dayLength / 8;
+  const nightSegment = nightLength / 8;
+  const minute = locationDayMinute(date, location);
+  const weekday = locationWeekday(date, location);
+  const isDay = minute >= sunrise && minute < sunset;
+  const sequence = isDay ? dayChaughadia[weekday] : nightChaughadia[weekday];
+  const base = isDay ? sunrise : sunset;
+  const length = isDay ? daySegment : nightSegment;
+  const elapsed = isDay ? minute - sunrise : wrap(minute - sunset, 1440);
+  const activeIndex = Math.min(7, Math.floor(elapsed / length));
+  const activeName = sequence[activeIndex];
+  const activeStart = base + activeIndex * length;
+  const activeEnd = activeStart + length;
+  const rahu = segmentWindow(sunrise, daySegment, rahuSegments[weekday]);
+  const yamaganda = segmentWindow(sunrise, daySegment, yamagandaSegments[weekday]);
+  const gulika = segmentWindow(sunrise, daySegment, gulikaSegments[weekday]);
+
+  const periods = sequence.map((name, index) => ({
+    name,
+    label: `${isDay ? "Day Chaughadia" : "Night Chaughadia"}`,
+    start: base + index * length,
+    end: base + (index + 1) * length,
+    active: index === activeIndex,
+    periodIndex: index + 1,
+    ...chaughadiaLabels[name]
+  }));
+
+  return {
+    sunrise,
+    sunset,
+    rahu,
+    yamaganda,
+    gulika,
+    active: {
+      name: activeName,
+      period: isDay ? "Day" : "Night",
+      quality: chaughadiaLabels[activeName].quality,
+      tone: chaughadiaLabels[activeName].tone,
+      start: activeStart,
+      end: activeEnd
+    },
+    periods
   };
 }
 
@@ -556,9 +816,30 @@ function drawWheel(state, date, location) {
       stroke: active ? "rgba(246, 200, 76, 0.95)" : "rgba(255,255,255,0.18)",
       "stroke-width": active ? 4 * CHART.scale : 2 * CHART.scale
     });
-    const [lx, ly] = polar(cx, cy, CHART.nakshatraLabelRadius + 20 * CHART.scale, start + (end - start) / 2);
+    const labelAngle = start + (end - start) / 2;
+    const tier = index % 3;
+    const ringOffset = (18 + tier * 14) * CHART.scale;
+    const jitter = Math.sin((index + 1) * 1.7) * 10 * CHART.scale;
+    const radius = CHART.nakshatraLabelRadius + ringOffset + jitter;
+    const [rawX, rawY] = polar(cx, cy, radius, labelAngle);
+    const lx = clamp(rawX, 180 * CHART.scale, CHART.size - 180 * CHART.scale);
+    const ly = clamp(rawY, 170 * CHART.scale, CHART.size - 170 * CHART.scale);
     const text = make("text", { x: lx, y: ly, class: "wheel-label" });
-    text.textContent = name;
+    text.setAttribute("data-base-x", lx.toFixed(2));
+    text.setAttribute("data-base-y", ly.toFixed(2));
+    const horizontalBias = lx < cx - 90 * CHART.scale ? "end" : lx > cx + 90 * CHART.scale ? "start" : "middle";
+    text.setAttribute("text-anchor", horizontalBias);
+    const en = document.createElementNS(ns, "tspan");
+    en.setAttribute("x", lx);
+    en.setAttribute("dy", "0");
+    en.textContent = name;
+    const sa = document.createElementNS(ns, "tspan");
+    sa.setAttribute("x", lx);
+    sa.setAttribute("dy", `${34 * CHART.scale / 5.333}`);
+    sa.setAttribute("class", "wheel-label-sa");
+    sa.textContent = nakshatraSanskrit[index];
+    text.appendChild(en);
+    text.appendChild(sa);
   });
 
   rashis.forEach((name, index) => {
@@ -579,9 +860,9 @@ function drawWheel(state, date, location) {
     en.textContent = name;
     const hi = document.createElementNS(ns, "tspan");
     hi.setAttribute("x", lx);
-    hi.setAttribute("dy", `${22 * CHART.scale / 5.333}`);
+    hi.setAttribute("dy", `${18 * CHART.scale / 5.333}`);
     hi.setAttribute("class", "rashi-label-hi");
-    hi.textContent = rashisHindi[index];
+    hi.textContent = rashiSanskritNames[index];
     text.appendChild(en);
     text.appendChild(hi);
     const [sx, sy] = polar(cx, cy, CHART.rashiSymbolRadius, start + 15);
@@ -771,14 +1052,14 @@ function initNakshatraSky() {
     label.setAttribute("id", `nak-label-${asterism.index}`);
     label.setAttribute("class", "nakshatra-label");
     label.setAttribute("opacity", "0");
-    label.textContent = asterism.name;
+    label.textContent = `${asterism.name} / ${nakshatraSanskrit[asterism.index] || ""}`;
     labelGroup.appendChild(label);
 
     const overlap = document.createElementNS(ns, "text");
     overlap.setAttribute("id", `nak-overlap-${asterism.index}`);
     overlap.setAttribute("class", "nakshatra-overlap");
     overlap.setAttribute("opacity", "0");
-    overlap.textContent = (asterism.overlapConstellations || []).slice(0, 2).join(" / ");
+    overlap.textContent = nakshatraCommon[asterism.index] || (asterism.overlapConstellations || []).slice(0, 2).join(" / ");
     labelGroup.appendChild(overlap);
   });
 
@@ -796,12 +1077,13 @@ function updateNakshatraSky(date, location, activeNakIndex) {
     const ecliptic = equatorialToSiderealEcliptic(star, date);
     const bandRadius = (274 - Math.max(-18, Math.min(18, ecliptic.lat)) * 2.25) * CHART.scale;
     const [x, y] = polar(CHART.center, CHART.center, bandRadius, ecliptic.lon);
-    const visible = sky.alt > -8;
+    const visible = true;
+    const altitudeInfluence = Math.max(0, Math.min(1, (sky.alt + 15) / 80));
     projected.set(star.hip, {
       visible,
       x,
       y,
-      opacity: visible ? Math.min(1, 0.22 + Math.max(0, sky.alt + 8) / 65) : 0
+      opacity: 0.58 + altitudeInfluence * 0.22
     });
   });
 
@@ -817,7 +1099,7 @@ function updateNakshatraSky(date, location, activeNakIndex) {
       const starName = starSvg.querySelector(`#nak-star-name-${asterism.index}-${hip}`);
       node.classList.toggle("active", active);
       starName?.classList.toggle("active", active);
-      if (!point || !point.visible) {
+      if (!point) {
         node.setAttribute("opacity", "0");
         if (starName) starName.setAttribute("opacity", "0");
         return;
@@ -829,11 +1111,13 @@ function updateNakshatraSky(date, location, activeNakIndex) {
       node.style.setProperty("--star-glow-color", visual.glowColor);
       node.setAttribute("cx", point.x);
       node.setAttribute("cy", point.y);
-      node.setAttribute("opacity", active ? Math.min(1, point.opacity * visual.opacity + 0.25) : point.opacity * visual.opacity);
+      node.setAttribute("opacity", active ? Math.min(1, point.opacity * visual.opacity + 0.25) : Math.max(0.54, point.opacity * visual.opacity));
       if (starName) {
         starName.setAttribute("x", point.x);
         starName.setAttribute("y", point.y + 7 * CHART.scale);
-        starName.setAttribute("opacity", active ? "0.86" : Math.max(0.28, point.opacity * 0.52).toFixed(2));
+        starName.setAttribute("data-base-x", point.x.toFixed(2));
+        starName.setAttribute("data-base-y", (point.y + 7 * CHART.scale).toFixed(2));
+        starName.setAttribute("opacity", active ? "0.95" : "0.74");
       }
       visiblePoints.push(point);
     });
@@ -843,7 +1127,7 @@ function updateNakshatraSky(date, location, activeNakIndex) {
       const a = projected.get(Number(node.getAttribute("data-a")));
       const b = projected.get(Number(node.getAttribute("data-b")));
       node.classList.toggle("active", active);
-      if (!a?.visible || !b?.visible) {
+      if (!a || !b) {
         node.setAttribute("opacity", "0");
         return;
       }
@@ -858,19 +1142,106 @@ function updateNakshatraSky(date, location, activeNakIndex) {
     const overlap = starSvg.querySelector(`#nak-overlap-${asterism.index}`);
     label.classList.toggle("active", active);
     overlap.classList.toggle("active", active);
-    if (!visiblePoints.length) {
-      label.setAttribute("opacity", "0");
-      overlap.setAttribute("opacity", "0");
-      return;
+    let cx = CHART.center;
+    let cy = CHART.center;
+    if (visiblePoints.length) {
+      cx = visiblePoints.reduce((sum, point) => sum + point.x, 0) / visiblePoints.length;
+      cy = visiblePoints.reduce((sum, point) => sum + point.y, 0) / visiblePoints.length;
+    } else {
+      [cx, cy] = polar(CHART.center, CHART.center, CHART.starFieldRadius * 0.78, (asterism.index * 360 / 27) + 6);
     }
-    const cx = visiblePoints.reduce((sum, point) => sum + point.x, 0) / visiblePoints.length;
-    const cy = visiblePoints.reduce((sum, point) => sum + point.y, 0) / visiblePoints.length;
     label.setAttribute("x", cx);
     label.setAttribute("y", cy - 14 * CHART.scale);
-    label.setAttribute("opacity", active ? "0.95" : "0.52");
+    label.setAttribute("data-base-x", cx.toFixed(2));
+    label.setAttribute("data-base-y", (cy - 14 * CHART.scale).toFixed(2));
+    label.setAttribute("opacity", active ? "1" : "0.84");
     overlap.setAttribute("x", cx);
     overlap.setAttribute("y", cy - 4 * CHART.scale);
-    overlap.setAttribute("opacity", active ? "0.86" : "0.42");
+    overlap.setAttribute("data-base-x", cx.toFixed(2));
+    overlap.setAttribute("data-base-y", (cy - 4 * CHART.scale).toFixed(2));
+    overlap.setAttribute("opacity", active ? "0.9" : "0.68");
+  });
+}
+
+function intersectsRect(a, b, padding = 0) {
+  return !(
+    a.x + a.width + padding < b.x ||
+    b.x + b.width + padding < a.x ||
+    a.y + a.height + padding < b.y ||
+    b.y + b.height + padding < a.y
+  );
+}
+
+function resolveSkyLabelOverlaps() {
+  if (!starSvg) return;
+  const selectors = [
+    ".wheel-label",
+    ".nakshatra-label",
+    ".nakshatra-overlap",
+    ".nakshatra-star-name",
+    ".star-label"
+  ];
+  const labels = Array.from(starSvg.querySelectorAll(selectors.join(",")))
+    .filter((node) => {
+      const opacityAttr = node.getAttribute("opacity");
+      const opacity = opacityAttr == null ? 1 : Number.parseFloat(opacityAttr || "0");
+      return opacity > 0.1;
+    });
+
+  labels.forEach((node) => {
+    const baseX = Number.parseFloat(node.getAttribute("data-base-x") || node.getAttribute("x") || "0");
+    const baseY = Number.parseFloat(node.getAttribute("data-base-y") || node.getAttribute("y") || "0");
+    node.setAttribute("x", baseX.toFixed(2));
+    node.setAttribute("y", baseY.toFixed(2));
+  });
+
+  const priorities = labels.sort((a, b) => {
+    const aActive = a.classList.contains("active") ? 1 : 0;
+    const bActive = b.classList.contains("active") ? 1 : 0;
+    if (aActive !== bActive) return bActive - aActive;
+    const aWheel = a.classList.contains("wheel-label") ? 1 : 0;
+    const bWheel = b.classList.contains("wheel-label") ? 1 : 0;
+    if (aWheel !== bWheel) return bWheel - aWheel;
+    const aMain = a.classList.contains("nakshatra-label") ? 1 : 0;
+    const bMain = b.classList.contains("nakshatra-label") ? 1 : 0;
+    return bMain - aMain;
+  });
+
+  const placed = [];
+  const offsets = [
+    [0, 0], [0, -18], [16, -10], [-16, -10], [20, 8], [-20, 8], [0, 16], [30, 0], [-30, 0],
+    [28, -18], [-28, -18], [36, 12], [-36, 12], [0, -30], [0, 30]
+  ];
+
+  priorities.forEach((node) => {
+    const baseX = Number.parseFloat(node.getAttribute("data-base-x") || node.getAttribute("x") || "0");
+    const baseY = Number.parseFloat(node.getAttribute("data-base-y") || node.getAttribute("y") || "0");
+    let accepted = null;
+
+    for (const [dx, dy] of offsets) {
+      node.setAttribute("x", (baseX + dx).toFixed(2));
+      node.setAttribute("y", (baseY + dy).toFixed(2));
+      const rect = node.getBBox();
+      const inside =
+        rect.x >= 40 * CHART.scale &&
+        rect.y >= 40 * CHART.scale &&
+        rect.x + rect.width <= CHART.size - 40 * CHART.scale &&
+        rect.y + rect.height <= CHART.size - 40 * CHART.scale;
+      const overlap = placed.some((p) => intersectsRect(rect, p, 5 * CHART.scale));
+      if (inside && !overlap) {
+        accepted = rect;
+        break;
+      }
+    }
+
+    if (!accepted) {
+      node.setAttribute("opacity", Math.max(0.05, Number.parseFloat(node.getAttribute("opacity") || "1") * 0.28).toFixed(2));
+      const fallbackRect = node.getBBox();
+      placed.push(fallbackRect);
+      return;
+    }
+
+    placed.push(accepted);
   });
 }
 
@@ -888,6 +1259,7 @@ function updateStarChart(date, location, activeNakIndex) {
   if (wheelWrap) {
     wheelWrap.style.setProperty("--sky-daylight-opacity", (0.08 + daylight * 0.2).toFixed(2));
     wheelWrap.style.setProperty("--sky-night-shadow", (0.34 + (1 - daylight) * 0.16).toFixed(2));
+    wheelWrap.classList.toggle("night-mode", daylight < 0.42);
   }
 
   brightStars.forEach((star, index) => {
@@ -911,30 +1283,78 @@ function updateStarChart(date, location, activeNakIndex) {
     if (label) {
       label.setAttribute("x", x);
       label.setAttribute("y", y - 8 * CHART.scale);
+      label.setAttribute("data-base-x", x.toFixed(2));
+      label.setAttribute("data-base-y", (y - 8 * CHART.scale).toFixed(2));
       label.setAttribute("opacity", opacity * 0.9);
     }
   });
 
   updateNakshatraSky(date, location, activeNakIndex);
+  resolveSkyLabelOverlaps();
+}
+
+function formatMonthName(state) {
+  const [month, anchor, festival] = gujaratiMonths[state.monthIndex];
+  const prefix = state.isAdhikMonth ? "Adhik " : "";
+  const note = state.isAdhikMonth ? "intercalary month, approximate" : festival;
+  return `${prefix}${month} / anchored near ${anchor} / ${note}`;
+}
+
+function drawMuhurta(date, location) {
+  const muhurta = computeMuhurta(date, location);
+  const active = muhurta.active;
+  document.querySelector("#currentChaughadia").textContent = `${active.name} / ${active.quality}`;
+  document.querySelector("#currentChaughadiaWindow").textContent = `${active.period} period, ${formatMinuteWindow(active.start, active.end)}`;
+  document.querySelector("#currentChaughadiaMeaning").textContent = active.meaning;
+  document.querySelector("#sunriseValue").textContent = formatMinutes(muhurta.sunrise);
+  document.querySelector("#sunsetValue").textContent = formatMinutes(muhurta.sunset);
+  document.querySelector("#rahuValue").textContent = formatMinuteWindow(muhurta.rahu[0], muhurta.rahu[1]);
+  document.querySelector("#yamagandaValue").textContent = formatMinuteWindow(muhurta.yamaganda[0], muhurta.yamaganda[1]);
+  document.querySelector("#gulikaValue").textContent = formatMinuteWindow(muhurta.gulika[0], muhurta.gulika[1]);
+
+  const strip = document.querySelector("#chaughadiaStrip");
+  strip.innerHTML = "";
+  muhurta.periods.forEach((period) => {
+    const chip = document.createElement("article");
+    chip.className = `chaughadia-chip ${period.tone}${period.active ? " active" : ""}`;
+    chip.innerHTML = `<span>${period.label} ${period.periodIndex}</span><strong>${period.name} / ${period.quality}</strong><small>${formatMinuteWindow(period.start, period.end)}</small><small>${period.meaning}</small>`;
+    strip.appendChild(chip);
+  });
+}
+
+function updateNowVisibility(date) {
+  nowButton.classList.toggle("hidden", Math.abs(Date.now() - date.getTime()) < nowThresholdMs);
 }
 
 function updateText(state, date, location) {
-  document.querySelector("#phaseChip").textContent = state.phase;
-  document.querySelector("#localTimeLabel").textContent = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  document.querySelector("#tithiValue").textContent = tithis[state.tithiIndex];
+  document.querySelector("#phaseChipTitle").textContent = state.phase;
+  document.querySelector("#phaseChipMeta").textContent = "Moon phase";
+  const phase = moonPhaseVisual(state.angle);
+  if (phaseChipVisual) {
+    phaseChipVisual.style.setProperty("--shadow-stop", `${phase.stop}%`);
+    phaseChipVisual.style.setProperty("--moon-lit", phase.lit);
+    phaseChipVisual.style.setProperty("--moon-dark", phase.dark);
+  }
+  document.querySelector("#localTimeLabel").textContent = formatTime(date);
+  document.querySelector("#tithiValue").textContent = `${state.paksha.split(" ")[0]} ${tithis[state.tithiIndex]} / ${tithiCommon[state.tithiIndex]}`;
   document.querySelector("#pakshaValue").textContent = state.paksha;
-  document.querySelector("#nakshatraValue").textContent = nakshatras[state.nakIndex];
+  document.querySelector("#nakshatraValue").textContent = `${nakshatras[state.nakIndex]} / ${nakshatraSanskrit[state.nakIndex]} / ${nakshatraCommon[state.nakIndex]}`;
   document.querySelector("#moonRashiValue").textContent = formatRashiName(state.moonRashiIndex);
   document.querySelector("#sunRashiValue").textContent = formatRashiName(state.sunRashiIndex);
   document.querySelector("#moonRashiFocus").textContent = `${rashiSigns[state.moonRashiIndex]} ${formatRashiName(state.moonRashiIndex)}`;
   document.querySelector("#sunRashiFocus").textContent = `${rashiSigns[state.sunRashiIndex]} ${formatRashiName(state.sunRashiIndex)}`;
-  document.querySelector("#monthValue").textContent = gujaratiMonths[state.monthIndex][0];
+  document.querySelector("#monthValue").textContent = formatMonthName(state);
+  document.querySelector("#latValue").textContent = formatCoordinate(location.lat, "lat");
+  document.querySelector("#lonValue").textContent = formatCoordinate(location.lon, "lon");
   document.querySelector("#sunDegree").textContent = `${state.sun.toFixed(1)}°`;
   document.querySelector("#moonDegree").textContent = `${state.moon.toFixed(1)}°`;
 }
 
 function drawJourney(date) {
   const track = document.querySelector("#journeyTrack");
+  const startLabel = document.querySelector("#dayStartLabel");
+  const endLabel = document.querySelector("#dayEndLabel");
+  if (!track || !startLabel || !endLabel) return;
   track.innerHTML = "";
   const dayStart = new Date(date);
   dayStart.setHours(0, 0, 0, 0);
@@ -943,8 +1363,8 @@ function drawJourney(date) {
   const total = dayEnd - dayStart;
   const steps = 12;
 
-  document.querySelector("#dayStartLabel").textContent = `${dayStart.toLocaleDateString([], { month: "short", day: "numeric" })} 00:00`;
-  document.querySelector("#dayEndLabel").textContent = `${dayEnd.toLocaleDateString([], { month: "short", day: "numeric" })} 00:00`;
+  startLabel.textContent = `${dayStart.toLocaleDateString([], { month: "short", day: "numeric" })} 00:00`;
+  endLabel.textContent = `${dayEnd.toLocaleDateString([], { month: "short", day: "numeric" })} 00:00`;
 
   for (let i = 0; i < steps; i += 1) {
     const sample = new Date(dayStart.getTime() + total * (i / steps));
@@ -978,6 +1398,7 @@ function drawJourney(date) {
 
 function drawMonths(activeIndex) {
   const row = document.querySelector("#monthRow");
+  if (!row) return;
   row.innerHTML = "";
   gujaratiMonths.forEach(([month, anchor, festival], index) => {
     const card = document.createElement("article");
@@ -997,8 +1418,8 @@ function renderAt(date) {
   updateStarChart(date, location, state.nakIndex);
   drawWheel(state, date, location);
   updateText(state, date, location);
-  drawJourney(date);
-  drawMonths(state.monthIndex);
+  drawMuhurta(date, location);
+  updateNowVisibility(date);
   writeAppStateToUrl({
     locationName: location.name,
     lat: location.lat,
@@ -1080,11 +1501,72 @@ function setDayPlayback(direction) {
   startContinuousPlayback(direction * APP_CONFIG.playback.dayMsPerRealMs);
 }
 
+function hideLocationResults() {
+  locationResults.innerHTML = "";
+  locationResults.classList.remove("open");
+}
+
+function setLocationResultMessage(message) {
+  locationResults.innerHTML = `<div class="location-result muted">${message}</div>`;
+  locationResults.classList.add("open");
+}
+
+async function searchLocations(query) {
+  if (query.length < 3 || query === lastLocationQuery) return;
+  lastLocationQuery = query;
+  setLocationResultMessage("Searching...");
+
+  try {
+    const url = new URL("https://nominatim.openstreetmap.org/search");
+    url.searchParams.set("format", "jsonv2");
+    url.searchParams.set("addressdetails", "1");
+    url.searchParams.set("limit", "5");
+    url.searchParams.set("q", query);
+    const response = await fetch(url.toString(), {
+      headers: { Accept: "application/json" }
+    });
+    if (!response.ok) throw new Error("Location search unavailable");
+    const results = await response.json();
+    if (!Array.isArray(results) || results.length === 0) {
+      setLocationResultMessage("No location found");
+      return;
+    }
+
+    locationResults.innerHTML = "";
+    results.forEach((result) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "location-result";
+      button.textContent = result.display_name;
+      button.addEventListener("click", () => {
+        locationInput.value = result.display_name;
+        latInput.value = Number.parseFloat(result.lat).toFixed(4);
+        lonInput.value = Number.parseFloat(result.lon).toFixed(4);
+        hideLocationResults();
+        render();
+        writeAppStateToUrl({
+          locationName: locationInput.value,
+          lat: Number.parseFloat(latInput.value),
+          lon: Number.parseFloat(lonInput.value),
+          date: new Date(dateInput.value || Date.now())
+        }, true);
+      });
+      locationResults.appendChild(button);
+    });
+    locationResults.classList.add("open");
+  } catch {
+    setLocationResultMessage("Free location search is temporarily unavailable");
+  }
+}
+
 const initialState = readInitialState(APP_CONFIG.defaults);
 locationInput.value = initialState.locationName;
 latInput.value = initialState.lat.toFixed(4);
 lonInput.value = initialState.lon.toFixed(4);
 dateInput.value = toInputValue(Number.isNaN(initialState.date.getTime()) ? new Date() : initialState.date);
+if (urlParams.get("manualCoords") === "1" && manualCoordinates) {
+  manualCoordinates.open = true;
+}
 dateInput.addEventListener("input", () => {
   setPlayback(0, false);
   render();
@@ -1096,7 +1578,18 @@ nowButton.addEventListener("click", () => {
 });
 latInput.addEventListener("input", render);
 lonInput.addEventListener("input", render);
-locationInput.addEventListener("input", render);
+locationInput.addEventListener("input", () => {
+  clearTimeout(locationSearchTimer);
+  const query = locationInput.value.trim();
+  if (query.length < 3) {
+    hideLocationResults();
+    return;
+  }
+  locationSearchTimer = setTimeout(() => searchLocations(query), 450);
+});
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".location-field")) hideLocationResults();
+});
 geoButton.addEventListener("click", () => {
   if (!navigator.geolocation) {
     locationInput.value = "Geolocation unavailable";
@@ -1139,3 +1632,62 @@ dayForwardButton.addEventListener("click", () => setDayPlayback(1));
 updateTransportButton();
 render();
 window.addEventListener("resize", notifyParentHeight);
+
+if (wheelWrap) {
+  const clampPan = () => {
+    const maxOffset = ((wheelZoom - 1) * 920) / 2;
+    wheelPanX = clamp(wheelPanX, -maxOffset, maxOffset);
+    wheelPanY = clamp(wheelPanY, -maxOffset, maxOffset);
+  };
+  const applyWheelTransform = () => {
+    clampPan();
+    wheelWrap.style.setProperty("--wheel-zoom", String(wheelZoom));
+    wheelWrap.style.setProperty("--wheel-pan-x", `${wheelPanX}px`);
+    wheelWrap.style.setProperty("--wheel-pan-y", `${wheelPanY}px`);
+    wheelWrap.classList.toggle("is-pannable", wheelZoom > 1.01);
+  };
+  applyWheelTransform();
+  wheelWrap.addEventListener("wheel", (event) => {
+    if (event.deltaY === 0) return;
+    event.preventDefault();
+    const direction = event.deltaY > 0 ? -1 : 1;
+    wheelZoom = Math.min(2.4, Math.max(1, wheelZoom + direction * 0.09));
+    if (wheelZoom <= 1.01) {
+      wheelPanX = 0;
+      wheelPanY = 0;
+    }
+    applyWheelTransform();
+  }, { passive: false });
+  wheelWrap.addEventListener("dblclick", () => {
+    wheelZoom = 1;
+    wheelPanX = 0;
+    wheelPanY = 0;
+    applyWheelTransform();
+  });
+  wheelWrap.addEventListener("pointerdown", (event) => {
+    if (wheelZoom <= 1.01) return;
+    isWheelDragging = true;
+    wheelDragStartX = event.clientX;
+    wheelDragStartY = event.clientY;
+    wheelPanStartX = wheelPanX;
+    wheelPanStartY = wheelPanY;
+    wheelWrap.classList.add("is-dragging");
+    wheelWrap.setPointerCapture(event.pointerId);
+  });
+  wheelWrap.addEventListener("pointermove", (event) => {
+    if (!isWheelDragging) return;
+    wheelPanX = wheelPanStartX + (event.clientX - wheelDragStartX);
+    wheelPanY = wheelPanStartY + (event.clientY - wheelDragStartY);
+    applyWheelTransform();
+  });
+  const endWheelDrag = (event) => {
+    if (!isWheelDragging) return;
+    isWheelDragging = false;
+    wheelWrap.classList.remove("is-dragging");
+    if (event?.pointerId != null && wheelWrap.hasPointerCapture(event.pointerId)) {
+      wheelWrap.releasePointerCapture(event.pointerId);
+    }
+  };
+  wheelWrap.addEventListener("pointerup", endWheelDrag);
+  wheelWrap.addEventListener("pointercancel", endWheelDrag);
+}

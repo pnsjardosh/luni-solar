@@ -66,7 +66,8 @@ body.embed-mode .app-shell {
 .sky-panel,
 .panchang-panel,
 .journey-panel,
-.calendar-band {
+.calendar-band,
+.muhurta-panel {
   border: 1px solid var(--line);
   background: rgba(5, 8, 15, 0.88);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.25);
@@ -78,6 +79,7 @@ body.embed-mode .app-shell {
   top: 12px;
   z-index: 40;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
@@ -86,6 +88,11 @@ body.embed-mode .app-shell {
   border-radius: 8px;
   background: rgba(5, 8, 15, 0.94);
   box-shadow: 0 16px 42px rgba(0, 0, 0, 0.32);
+}
+
+.topbar > div:first-child {
+  flex: 1 1 300px;
+  min-width: 240px;
 }
 
 body.embed-mode .topbar {
@@ -112,7 +119,7 @@ h2 {
 }
 
 h1 {
-  font-size: clamp(2rem, 4vw, 4.4rem);
+  font-size: clamp(1.8rem, 3vw, 3.6rem);
 }
 
 h2 {
@@ -120,11 +127,106 @@ h2 {
 }
 
 .control-strip {
-  display: grid;
-  grid-template-columns: minmax(150px, 1.2fr) minmax(96px, 0.7fr) minmax(96px, 0.7fr) minmax(190px, 1fr) auto auto auto;
+  display: flex;
+  flex: 1 1 720px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
   align-items: end;
-  width: min(1120px, 100%);
+  max-width: 100%;
+  min-width: 0;
+}
+
+.location-field {
+  position: relative;
+  flex: 1 1 260px;
+  min-width: min(260px, 100%);
+}
+
+.control-strip > label:not(.location-field) {
+  flex: 0 1 220px;
+  min-width: 190px;
+}
+
+.location-results {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: auto;
+  z-index: 80;
+  display: none;
+  width: min(520px, 100%);
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(4, 9, 17, 0.98);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.42);
+}
+
+.location-results.open {
+  display: grid;
+}
+
+.location-result {
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: transparent;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.location-result:hover,
+.location-result:focus-visible {
+  background: rgba(246, 200, 76, 0.14);
+}
+
+.location-result.muted {
+  color: var(--muted);
+  cursor: default;
+}
+
+.manual-coordinates {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.manual-coordinates summary {
+  display: grid;
+  place-items: center;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  font-weight: 800;
+  list-style: none;
+}
+
+.manual-coordinates summary::-webkit-details-marker {
+  display: none;
+}
+
+.manual-coordinate-grid {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 70;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 10px;
+  width: min(360px, calc(100vw - 48px));
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(4, 9, 17, 0.98);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.42);
 }
 
 label span {
@@ -157,19 +259,67 @@ button {
   cursor: pointer;
 }
 
+.ghost-button {
+  color: var(--gold);
+  background: rgba(246, 200, 76, 0.12);
+}
+
+.now-icon-button {
+  width: 42px;
+  min-height: 42px;
+  padding: 0;
+}
+
+.now-icon-button img {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
+
+.hidden,
+.is-hidden {
+  display: none !important;
+}
+
 .transport {
   display: grid;
-  grid-template-columns: 54px repeat(3, 42px) 54px;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(5, 42px);
   gap: 6px;
 }
 
 .icon-button {
   display: grid;
   place-items: center;
+  width: 42px;
   min-height: 42px;
   padding: 0;
   color: var(--ink);
   background: rgba(255, 255, 255, 0.08);
+}
+
+.icon-button svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.geo-button svg {
+  fill: currentColor;
+  stroke: currentColor;
+  transform: rotate(45deg);
+}
+
+button:hover,
+button:focus-visible,
+.manual-coordinates summary:hover,
+.manual-coordinates summary:focus-visible {
+  border-color: rgba(246, 200, 76, 0.72);
+  box-shadow: 0 0 0 3px rgba(246, 200, 76, 0.12);
 }
 
 .icon-button.active {
@@ -192,7 +342,8 @@ button {
 .sky-panel,
 .panchang-panel,
 .journey-panel,
-.calendar-band {
+.calendar-band,
+.muhurta-panel {
   border-radius: 8px;
   padding: 18px;
 }
@@ -210,13 +361,42 @@ button {
 }
 
 .phase-chip {
-  min-width: 132px;
-  padding: 8px 12px;
+  min-width: 190px;
+  padding: 8px 10px;
   border: 1px solid rgba(246, 200, 76, 0.38);
-  border-radius: 999px;
+  border-radius: 14px;
   color: var(--gold);
-  text-align: center;
   background: var(--gold-soft);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.phase-chip-visual {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background:
+    radial-gradient(circle at 36% 34%, rgba(255, 255, 255, 0.95) 0 9%, transparent 10%),
+    linear-gradient(90deg, var(--moon-dark, #44505f) 0 var(--shadow-stop, 50%), var(--moon-lit, #f4f1e7) var(--shadow-stop, 50%) 100%);
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.32);
+}
+
+.phase-chip-text strong,
+.phase-chip-text small {
+  display: block;
+  line-height: 1.2;
+}
+
+.phase-chip-text strong {
+  color: #fff4d2;
+  font-size: 0.9rem;
+}
+
+.phase-chip-text small {
+  color: var(--muted);
+  font-size: 0.72rem;
 }
 
 .wheel-wrap {
@@ -232,6 +412,11 @@ button {
   --sun-top: 50%;
   --sky-daylight-opacity: 0.12;
   --sky-night-shadow: 0.42;
+  --wheel-zoom: 1;
+  --wheel-pan-x: 0px;
+  --wheel-pan-y: 0px;
+  overflow: hidden;
+  touch-action: none;
 }
 
 .wheel-wrap::after {
@@ -252,6 +437,9 @@ button {
   width: min(920px, 100%);
   aspect-ratio: 1;
   filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.35));
+  transform: translate(var(--wheel-pan-x), var(--wheel-pan-y)) scale(var(--wheel-zoom));
+  transform-origin: center;
+  transition: transform 220ms ease;
 }
 
 #starChart {
@@ -260,6 +448,17 @@ button {
   width: min(920px, 100%);
   aspect-ratio: 1;
   pointer-events: none;
+  transform: translate(var(--wheel-pan-x), var(--wheel-pan-y)) scale(var(--wheel-zoom));
+  transform-origin: center;
+  transition: transform 220ms ease;
+}
+
+.wheel-wrap.is-pannable {
+  cursor: grab;
+}
+
+.wheel-wrap.is-pannable.is-dragging {
+  cursor: grabbing;
 }
 
 #starChart circle,
@@ -301,21 +500,27 @@ button {
 }
 
 .nakshatra-label {
-  fill: rgba(230, 248, 255, 0.92);
-  font-size: 27px;
+  fill: rgba(237, 251, 255, 0.97);
+  font-size: 36px;
   font-weight: 800;
+  paint-order: stroke fill;
+  stroke: rgba(2, 7, 15, 0.86);
+  stroke-width: 4px;
   text-anchor: middle;
 }
 
 .nakshatra-label.active {
   fill: #f6c84c;
-  font-size: 31px;
+  font-size: 39px;
 }
 
 .nakshatra-overlap {
-  fill: rgba(124, 220, 255, 0.82);
-  font-size: 20px;
+  fill: rgba(158, 231, 255, 0.9);
+  font-size: 21px;
   font-weight: 600;
+  paint-order: stroke fill;
+  stroke: rgba(2, 7, 15, 0.78);
+  stroke-width: 3px;
   text-anchor: middle;
 }
 
@@ -324,17 +529,44 @@ button {
 }
 
 .nakshatra-star-name {
-  fill: rgba(235, 248, 255, 0.74);
-  font-size: 22px;
-  font-weight: 600;
+  fill: rgba(239, 251, 255, 0.95);
+  font-size: 24px;
+  font-weight: 700;
   paint-order: stroke fill;
-  stroke: rgba(1, 4, 12, 0.84);
+  stroke: rgba(1, 4, 12, 0.9);
   stroke-width: 4px;
   text-anchor: middle;
 }
 
 .nakshatra-star-name.active {
   fill: rgba(246, 200, 76, 0.92);
+}
+
+.wheel-wrap.night-mode .nakshatra-label {
+  fill: #fbfeff;
+  font-weight: 900;
+  stroke: rgba(1, 4, 10, 0.96);
+  stroke-width: 5px;
+  filter: drop-shadow(0 0 8px rgba(210, 242, 255, 0.45));
+}
+
+.wheel-wrap.night-mode .nakshatra-label.active {
+  fill: #ffd56a;
+  stroke: rgba(32, 19, 3, 0.96);
+}
+
+.wheel-wrap.night-mode .nakshatra-overlap {
+  fill: rgba(185, 240, 255, 0.98);
+  stroke: rgba(2, 6, 12, 0.9);
+  stroke-width: 3.5px;
+}
+
+.wheel-wrap.night-mode .nakshatra-star-name {
+  fill: #f4fcff;
+  font-weight: 800;
+  stroke: rgba(1, 4, 10, 0.95);
+  stroke-width: 4.5px;
+  filter: drop-shadow(0 0 6px rgba(198, 236, 255, 0.38));
 }
 
 .sun-visual {
@@ -441,10 +673,11 @@ button {
   height: 18px;
   inset: auto;
   transform: translate(-50%, -92%) rotate(var(--pin-counter-tilt, 45deg));
-  border: 1px solid rgba(121, 213, 255, 0.95);
+  border: 2px solid rgba(255, 255, 255, 0.98);
   border-radius: 50% 50% 50% 4px;
-  background: rgba(54, 165, 255, 0.28);
-  box-shadow: 0 0 18px rgba(54, 165, 255, 0.85), inset 0 0 10px rgba(255, 255, 255, 0.24);
+  background: rgba(246, 200, 76, 0.9);
+  box-shadow: 0 0 0 5px rgba(246, 200, 76, 0.18), 0 0 22px rgba(246, 200, 76, 0.95), inset 0 0 10px rgba(255, 255, 255, 0.34);
+  opacity: var(--marker-opacity, 1);
   z-index: 5;
   transition:
     left 520ms linear,
@@ -457,7 +690,7 @@ button {
   position: absolute;
   inset: 4px;
   border-radius: 50%;
-  background: rgba(176, 232, 255, 0.72);
+  background: rgba(3, 7, 16, 0.72);
 }
 
 .earth-location-marker::before {
@@ -501,20 +734,28 @@ button {
 
 .panchang-list {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
   gap: 10px;
   margin: 0;
 }
 
 .panchang-list div,
 .mini-orbits,
-.month-card {
+.month-card,
+.muhurta-card,
+.chaughadia-chip {
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
 }
 
 .panchang-list div {
-  padding: 12px;
+  min-height: 82px;
+  padding: 11px;
+}
+
+.reading-card.wide {
+  grid-column: span 2;
 }
 
 dt {
@@ -525,8 +766,9 @@ dt {
 dd {
   margin: 3px 0 0;
   color: white;
-  font-size: 1.02rem;
+  font-size: 0.92rem;
   font-weight: 800;
+  line-height: 1.28;
 }
 
 .mini-orbits {
@@ -553,8 +795,86 @@ dd {
 }
 
 .journey-panel,
-.calendar-band {
+.calendar-band,
+.muhurta-panel {
   margin-top: 16px;
+}
+
+.accuracy-note {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.muhurta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 10px;
+}
+
+.muhurta-card {
+  min-height: 98px;
+  padding: 13px;
+}
+
+.muhurta-card.active {
+  border-color: rgba(246, 200, 76, 0.72);
+  background: linear-gradient(180deg, rgba(246, 200, 76, 0.18), rgba(255, 255, 255, 0.06));
+}
+
+.muhurta-card span,
+.chaughadia-chip span,
+.chaughadia-chip small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.muhurta-card strong,
+.chaughadia-chip strong {
+  display: block;
+  margin-top: 5px;
+  color: white;
+  font-size: 1rem;
+}
+
+.muhurta-card p {
+  margin: 8px 0 0;
+  color: var(--gold);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.muhurta-card small {
+  display: block;
+  margin-top: 6px;
+  color: rgba(226, 234, 242, 0.88);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.chaughadia-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(122px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.chaughadia-chip {
+  min-height: 118px;
+  padding: 10px;
+}
+
+.chaughadia-chip.good {
+  border-color: rgba(157, 226, 116, 0.35);
+}
+
+.chaughadia-chip.avoid {
+  border-color: rgba(255, 122, 144, 0.35);
+}
+
+.chaughadia-chip.active {
+  border-color: rgba(246, 200, 76, 0.84);
+  box-shadow: inset 0 0 0 1px rgba(246, 200, 76, 0.28);
 }
 
 .journey-times {
@@ -678,10 +998,19 @@ dd {
 
 .wheel-label {
   fill: #f9f2dc;
-  font-size: 54px;
-  font-weight: 500;
+  font-size: 40px;
+  font-weight: 700;
   dominant-baseline: middle;
+  paint-order: stroke fill;
+  stroke: rgba(3, 7, 16, 0.88);
+  stroke-width: 8px;
   text-anchor: middle;
+}
+
+.wheel-label-sa {
+  fill: rgba(246, 200, 76, 0.92);
+  font-size: 24px;
+  font-weight: 700;
 }
 
 .rashi-label {
@@ -697,51 +1026,53 @@ dd {
 
 .rashi-label-hi {
   fill: rgba(245, 236, 198, 0.92);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
 }
 
 .rashi-symbol {
   fill: rgba(245, 247, 255, 0.94);
   font-family: "Noto Sans Symbols 2", "Noto Sans Symbols", "Segoe UI Symbol", "DejaVu Sans", serif;
-  font-size: 96px;
+  font-size: 102px;
   font-weight: 400;
+  alignment-baseline: middle;
   dominant-baseline: middle;
   paint-order: stroke fill;
   stroke: rgba(4, 8, 18, 0.88);
   stroke-width: 7px;
   text-anchor: middle;
   text-rendering: geometricPrecision;
+  transform: translateY(1px);
 }
 
 .rashi-symbol.active-sun {
-  fill: #ffb347;
-  stroke: rgba(34, 16, 2, 0.92);
-  filter: drop-shadow(0 0 24px rgba(255, 179, 71, 0.95));
+  fill: rgba(251, 244, 228, 0.98);
+  stroke: rgba(4, 8, 18, 0.96);
+  filter: drop-shadow(0 0 18px rgba(246, 200, 76, 0.62));
 }
 
 .rashi-symbol.active-moon {
-  fill: #dceeff;
-  stroke: rgba(3, 14, 30, 0.9);
-  filter: drop-shadow(0 0 22px rgba(180, 220, 255, 0.9));
+  fill: rgba(251, 244, 228, 0.98);
+  stroke: rgba(4, 8, 18, 0.96);
+  filter: drop-shadow(0 0 18px rgba(180, 220, 255, 0.58));
 }
 
 .rashi-symbol-halo {
-  fill: rgba(2, 4, 12, 0.72);
-  stroke: rgba(193, 217, 236, 0.24);
+  fill: rgba(192, 215, 234, 0.18);
+  stroke: rgba(193, 217, 236, 0.46);
   stroke-width: 4px;
 }
 
 .rashi-symbol-halo.active-sun {
-  fill: rgba(255, 179, 71, 0.16);
-  stroke: rgba(255, 179, 71, 0.82);
-  filter: drop-shadow(0 0 18px rgba(255, 179, 71, 0.58));
+  fill: rgba(192, 215, 234, 0.18);
+  stroke: rgba(246, 200, 76, 0.86);
+  filter: drop-shadow(0 0 14px rgba(246, 200, 76, 0.46));
 }
 
 .rashi-symbol-halo.active-moon {
-  fill: rgba(180, 220, 255, 0.13);
-  stroke: rgba(180, 220, 255, 0.72);
-  filter: drop-shadow(0 0 18px rgba(180, 220, 255, 0.5));
+  fill: rgba(192, 215, 234, 0.18);
+  stroke: rgba(180, 220, 255, 0.78);
+  filter: drop-shadow(0 0 14px rgba(180, 220, 255, 0.42));
 }
 
 .rashi-focus {
@@ -816,6 +1147,14 @@ dd {
   .month-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .control-strip {
+    justify-content: flex-start;
+  }
+
+  .transport {
+    justify-content: start;
+  }
 }
 
 @media (max-width: 680px) {
@@ -830,7 +1169,32 @@ dd {
   }
 
   .control-strip {
+    display: grid;
     grid-template-columns: 1fr;
+    justify-content: stretch;
+  }
+
+  .location-field,
+  .control-strip > label:not(.location-field),
+  .manual-coordinates,
+  .transport {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .manual-coordinate-grid {
+    left: 0;
+    right: auto;
+    grid-template-columns: 1fr;
+    width: min(320px, calc(100vw - 28px));
+  }
+
+  .transport {
+    grid-template-columns: repeat(5, 42px);
+  }
+
+  .reading-card.wide {
+    grid-column: auto;
   }
 
   .panel-title,
@@ -842,12 +1206,25 @@ dd {
   .sky-panel,
   .panchang-panel,
   .journey-panel,
-  .calendar-band {
+  .calendar-band,
+  .muhurta-panel {
     padding: 12px;
   }
 
   .earth-core {
     width: 102px;
     min-width: 102px;
+  }
+
+  .rashi-label {
+    font-size: 30px;
+  }
+
+  .rashi-label-hi {
+    font-size: 20px;
+  }
+
+  .rashi-symbol {
+    font-size: 88px;
   }
 }

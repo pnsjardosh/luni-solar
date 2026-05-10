@@ -1,6 +1,18 @@
 class LuniSolarEmbed extends HTMLElement {
   static get observedAttributes() {
-    return ["app-base", "location", "lat", "lon", "date", "height", "title"];
+    return [
+      "app-base",
+      "location",
+      "lat",
+      "lon",
+      "date",
+      "height",
+      "title",
+      "language",
+      "default-panel",
+      "show-advanced-location",
+      "location-search-provider"
+    ];
   }
 
   constructor() {
@@ -38,11 +50,19 @@ class LuniSolarEmbed extends HTMLElement {
     const lat = this.getAttribute("lat");
     const lon = this.getAttribute("lon");
     const date = this.getAttribute("date");
+    const language = this.getAttribute("language");
+    const defaultPanel = this.getAttribute("default-panel");
+    const showAdvancedLocation = this.getAttribute("show-advanced-location");
+    const locationSearchProvider = this.getAttribute("location-search-provider");
 
     if (location) params.set("loc", location);
     if (lat) params.set("lat", lat);
     if (lon) params.set("lon", lon);
     if (date) params.set("at", date);
+    if (language) params.set("lang", language);
+    if (defaultPanel) params.set("panel", defaultPanel);
+    if (showAdvancedLocation === "true") params.set("manualCoords", "1");
+    if (locationSearchProvider) params.set("locationSearchProvider", locationSearchProvider);
 
     return url.toString();
   }
