@@ -1246,13 +1246,17 @@ dd {
 
 .nakshatra-arc-label {
   fill: rgba(241, 251, 255, 0.95);
-  font-size: 26px;
+  font-size: 40px;
   font-weight: 700;
   letter-spacing: 0;
   dominant-baseline: middle;
   paint-order: stroke fill;
   stroke: rgba(2, 7, 15, 0.92);
   stroke-width: 4px;
+}
+
+body.wheel-zoom-active .topbar {
+  position: static;
 }
 
 .nakshatra-arc-label.active {

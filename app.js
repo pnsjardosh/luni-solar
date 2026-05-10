@@ -1007,19 +1007,37 @@ function drawWheel(state, date, location) {
       stroke: active ? "rgba(246, 200, 76, 0.95)" : "rgba(255,255,255,0.18)",
       "stroke-width": active ? 4 * CHART.scale : 2 * CHART.scale
     });
-    const labelPathId = `nak-outer-arc-${index}`;
-    const arc = document.createElementNS(ns, "path");
-    arc.setAttribute("id", labelPathId);
-    arc.setAttribute("d", arcLinePath(cx, cy, CHART.outerRadius + 14 * CHART.scale, start + 2.1, end - 2.1));
-    defs.appendChild(arc);
+    const words = name.split(" ");
+    const lineOne = words.length > 1 ? words.slice(0, Math.ceil(words.length / 2)).join(" ") : name;
+    const lineTwo = words.length > 1 ? words.slice(Math.ceil(words.length / 2)).join(" ") : "";
+    const lineOnePathId = `nak-outer-arc-line1-${index}`;
+    const lineOneArc = document.createElementNS(ns, "path");
+    lineOneArc.setAttribute("id", lineOnePathId);
+    lineOneArc.setAttribute("d", arcLinePath(cx, cy, CHART.outerRadius + 10 * CHART.scale, start + 2.1, end - 2.1));
+    defs.appendChild(lineOneArc);
 
-    const text = make("text", { class: `nakshatra-arc-label${active ? " active" : ""}` });
-    const textPath = document.createElementNS(ns, "textPath");
-    textPath.setAttribute("href", `#${labelPathId}`);
-    textPath.setAttribute("startOffset", "50%");
-    textPath.setAttribute("text-anchor", "middle");
-    textPath.textContent = `${name} · ${nakshatraSanskrit[index]}`;
-    text.appendChild(textPath);
+    const lineOneText = make("text", { class: `nakshatra-arc-label${active ? " active" : ""}` });
+    const lineOneTextPath = document.createElementNS(ns, "textPath");
+    lineOneTextPath.setAttribute("href", `#${lineOnePathId}`);
+    lineOneTextPath.setAttribute("startOffset", "50%");
+    lineOneTextPath.setAttribute("text-anchor", "middle");
+    lineOneTextPath.textContent = lineOne;
+    lineOneText.appendChild(lineOneTextPath);
+
+    if (lineTwo) {
+      const lineTwoPathId = `nak-outer-arc-line2-${index}`;
+      const lineTwoArc = document.createElementNS(ns, "path");
+      lineTwoArc.setAttribute("id", lineTwoPathId);
+      lineTwoArc.setAttribute("d", arcLinePath(cx, cy, CHART.outerRadius + 25 * CHART.scale, start + 2.1, end - 2.1));
+      defs.appendChild(lineTwoArc);
+      const lineTwoText = make("text", { class: `nakshatra-arc-label${active ? " active" : ""}` });
+      const lineTwoTextPath = document.createElementNS(ns, "textPath");
+      lineTwoTextPath.setAttribute("href", `#${lineTwoPathId}`);
+      lineTwoTextPath.setAttribute("startOffset", "50%");
+      lineTwoTextPath.setAttribute("text-anchor", "middle");
+      lineTwoTextPath.textContent = lineTwo;
+      lineTwoText.appendChild(lineTwoTextPath);
+    }
   });
 
   rashis.forEach((name, index) => {
@@ -1885,6 +1903,7 @@ if (wheelWrap) {
     wheelWrap.style.setProperty("--wheel-pan-x", `${wheelPanX}px`);
     wheelWrap.style.setProperty("--wheel-pan-y", `${wheelPanY}px`);
     wheelWrap.classList.toggle("is-pannable", wheelZoom > 1.01);
+    document.body.classList.toggle("wheel-zoom-active", wheelZoom > 1.01);
   };
   applyWheelTransform();
   wheelWrap.addEventListener("wheel", (event) => {
