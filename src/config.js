@@ -10,6 +10,20 @@ export const APP_CONFIG = {
     visualRenderIntervalMs: 320,
     inputSyncIntervalMs: 400
   },
+  time: {
+    autoDetectFromBrowser: true,
+    // Set this for exact civil time for the selected region (e.g. -300 for US Eastern Standard Time).
+    // Keep null to fall back to longitude-derived local solar offset.
+    utcOffsetMinutes: null,
+    dst: {
+      enabled: false,
+      offsetMinutes: 60,
+      // Rule format: month 1-12, week 1-5 (5 means last), weekday 0-6 (Sun-Sat), hour 0-23.
+      // Default US pattern: second Sunday in March at 2:00 to first Sunday in November at 2:00.
+      start: { month: 3, week: 2, weekday: 0, hour: 2 },
+      end: { month: 11, week: 1, weekday: 0, hour: 2 }
+    }
+  },
   defaults: {
     locationName: "Ujjain, India",
     lat: 23.1765,

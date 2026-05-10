@@ -129,6 +129,9 @@ let wheelDragStartX = 0;
 let wheelDragStartY = 0;
 let wheelPanStartX = 0;
 let wheelPanStartY = 0;
+const locationTimezoneCache = new Map();
+const locationTimezonePending = new Set();
+const timeZoneFormatterCache = new Map();
 
 const brightStars = [
   { name: "Sirius", ra: 6.7525, dec: -16.7161, mag: -1.46 },
@@ -625,6 +628,172 @@ function dayOfYearUtc(date) {
   return Math.floor((current - start) / 86400000);
 }
 
+function locationCacheKey(location) {
+  return `${location.lat.toFixed(3)}:${location.lon.toFixed(3)}`;
+}
+
+function getTimeZoneFormatter(timeZone) {
+  if (timeZoneFormatterCache.has(timeZone)) return timeZoneFormatterCache.get(timeZone);
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  });
+  timeZoneFormatterCache.set(timeZone, formatter);
+  return formatter;
+}
+
+function offsetMinutesForTimeZone(date, timeZone) {
+  const formatter = getTimeZoneFormatter(timeZone);
+  const parts = formatter.formatToParts(date);
+  const values = {};
+  parts.forEach((part) => {
+    if (part.type !== "literal") values[part.type] = part.value;
+  });
+  const asUtc = Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day),
+    Number(values.hour),
+    Number(values.minute),
+    Number(values.second)
+  );
+  return Math.round((asUtc - date.getTime()) / 60000);
+}
+
+function nthWeekdayOfMonth(year, monthOneBased, weekday, week) {
+  const month = monthOneBased - 1;
+  const firstDay = new Date(Date.UTC(year, month, 1));
+  const firstWeekday = firstDay.getUTCDay();
+  const firstOccurrence = 1 + ((7 + weekday - firstWeekday) % 7);
+  if (week === 5) {
+    const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    let day = firstOccurrence;
+    while (day + 7 <= lastDay) day += 7;
+    return day;
+  }
+  return firstOccurrence + (week - 1) * 7;
+}
+
+function browserOffsetMinutesAt(date) {
+  return -new Date(date).getTimezoneOffset();
+}
+
+function detectTimeProfileForZone(date, timeZone) {
+  const year = date.getFullYear();
+  const january = new Date(Date.UTC(year, 0, 1, 12, 0, 0, 0));
+  const july = new Date(Date.UTC(year, 6, 1, 12, 0, 0, 0));
+  const janOffset = offsetMinutesForTimeZone(january, timeZone);
+  const julOffset = offsetMinutesForTimeZone(july, timeZone);
+  const standardOffset = Math.min(janOffset, julOffset);
+  const activeOffset = offsetMinutesForTimeZone(date, timeZone);
+  const dstOffsetMinutes = Math.max(0, activeOffset - standardOffset);
+  return {
+    standardOffset,
+    activeOffset,
+    dstActive: dstOffsetMinutes > 0,
+    dstOffsetMinutes
+  };
+}
+
+function detectBrowserTimeProfile(date) {
+  const year = date.getFullYear();
+  const january = new Date(year, 0, 1, 12, 0, 0, 0);
+  const july = new Date(year, 6, 1, 12, 0, 0, 0);
+  const janOffset = browserOffsetMinutesAt(january);
+  const julOffset = browserOffsetMinutesAt(july);
+  const standardOffset = Math.min(janOffset, julOffset);
+  const activeOffset = browserOffsetMinutesAt(date);
+  const dstOffsetMinutes = Math.max(0, activeOffset - standardOffset);
+  return {
+    standardOffset,
+    activeOffset,
+    dstActive: dstOffsetMinutes > 0,
+    dstOffsetMinutes
+  };
+}
+
+async function ensureLocationTimeZone(location) {
+  const key = locationCacheKey(location);
+  if (locationTimezoneCache.has(key) || locationTimezonePending.has(key)) return;
+  locationTimezonePending.add(key);
+  try {
+    const url = new URL("https://api.open-meteo.com/v1/forecast");
+    url.searchParams.set("latitude", location.lat.toFixed(4));
+    url.searchParams.set("longitude", location.lon.toFixed(4));
+    url.searchParams.set("current", "temperature_2m");
+    url.searchParams.set("timezone", "auto");
+    const response = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error("timezone lookup failed");
+    const data = await response.json();
+    if (data?.timezone && typeof data.timezone === "string") {
+      locationTimezoneCache.set(key, data.timezone);
+      render();
+    }
+  } catch {
+    // Ignore timezone lookup failures and keep fallback behavior.
+  } finally {
+    locationTimezonePending.delete(key);
+  }
+}
+
+function baseUtcOffsetMinutes(location) {
+  const key = locationCacheKey(location);
+  const locationTimeZone = locationTimezoneCache.get(key);
+  if (locationTimeZone) {
+    return detectTimeProfileForZone(new Date(), locationTimeZone).standardOffset;
+  }
+  if (APP_CONFIG.time?.autoDetectFromBrowser) {
+    const nowProfile = detectBrowserTimeProfile(new Date());
+    return nowProfile.standardOffset;
+  }
+  if (Number.isFinite(APP_CONFIG.time?.utcOffsetMinutes)) return APP_CONFIG.time.utcOffsetMinutes;
+  return Math.round(location.lon * 4);
+}
+
+function isDstActive(date, location, baseOffsetMinutes) {
+  const key = locationCacheKey(location);
+  const locationTimeZone = locationTimezoneCache.get(key);
+  if (locationTimeZone) {
+    return detectTimeProfileForZone(date, locationTimeZone).dstActive;
+  }
+  if (APP_CONFIG.time?.autoDetectFromBrowser) {
+    return detectBrowserTimeProfile(date).dstActive;
+  }
+  const dstConfig = APP_CONFIG.time?.dst;
+  if (!dstConfig?.enabled) return false;
+  const localStandard = new Date(date.getTime() + baseOffsetMinutes * 60000);
+  const year = localStandard.getUTCFullYear();
+
+  const startDay = nthWeekdayOfMonth(year, dstConfig.start.month, dstConfig.start.weekday, dstConfig.start.week);
+  const endDay = nthWeekdayOfMonth(year, dstConfig.end.month, dstConfig.end.weekday, dstConfig.end.week);
+  const startLocal = Date.UTC(year, dstConfig.start.month - 1, startDay, dstConfig.start.hour, 0, 0, 0);
+  const endLocal = Date.UTC(year, dstConfig.end.month - 1, endDay, dstConfig.end.hour, 0, 0, 0);
+  const localStandardMs = localStandard.getTime();
+
+  if (startLocal < endLocal) return localStandardMs >= startLocal && localStandardMs < endLocal;
+  return localStandardMs >= startLocal || localStandardMs < endLocal;
+}
+
+function localUtcOffsetMinutes(date, location) {
+  const key = locationCacheKey(location);
+  const locationTimeZone = locationTimezoneCache.get(key);
+  if (locationTimeZone) {
+    return detectTimeProfileForZone(date, locationTimeZone).activeOffset;
+  }
+  if (APP_CONFIG.time?.autoDetectFromBrowser) {
+    return detectBrowserTimeProfile(date).activeOffset;
+  }
+  const base = baseUtcOffsetMinutes(location);
+  if (isDstActive(date, location, base)) return base + (APP_CONFIG.time?.dst?.offsetMinutes || 60);
+  return base;
+}
+
 function solarEventMinutes(date, location, isSunrise) {
   const zenith = 90.833;
   const n = dayOfYearUtc(date);
@@ -647,7 +816,7 @@ function solarEventMinutes(date, location, isSunrise) {
   h /= 15;
   const localMean = h + ra - (0.06571 * t) - 6.622;
   const utcHours = wrap(localMean - lngHour, 24);
-  return wrap(utcHours * 60 + location.lon * 4, 1440);
+  return wrap(utcHours * 60 + localUtcOffsetMinutes(date, location), 1440);
 }
 
 function formatMinutes(totalMinutes) {
@@ -666,11 +835,11 @@ function formatMinuteWindow(start, end) {
 
 function locationDayMinute(date, location) {
   const minutes = date.getUTCHours() * 60 + date.getUTCMinutes() + date.getUTCSeconds() / 60;
-  return wrap(minutes + location.lon * 4, 1440);
+  return wrap(minutes + localUtcOffsetMinutes(date, location), 1440);
 }
 
 function locationWeekday(date, location) {
-  return new Date(date.getTime() + location.lon * 4 * 60000).getUTCDay();
+  return new Date(date.getTime() + localUtcOffsetMinutes(date, location) * 60000).getUTCDay();
 }
 
 const chaughadiaLabels = {
@@ -1303,8 +1472,9 @@ function formatMonthName(state) {
 function drawMuhurta(date, location) {
   const muhurta = computeMuhurta(date, location);
   const active = muhurta.active;
+  const dstOn = isDstActive(date, location, baseUtcOffsetMinutes(location));
   document.querySelector("#currentChaughadia").textContent = `${active.name} / ${active.quality}`;
-  document.querySelector("#currentChaughadiaWindow").textContent = `${active.period} period, ${formatMinuteWindow(active.start, active.end)}`;
+  document.querySelector("#currentChaughadiaWindow").textContent = `${active.period} period, ${formatMinuteWindow(active.start, active.end)}${dstOn ? " (DST)" : ""}`;
   document.querySelector("#currentChaughadiaMeaning").textContent = active.meaning;
   document.querySelector("#sunriseValue").textContent = formatMinutes(muhurta.sunrise);
   document.querySelector("#sunsetValue").textContent = formatMinutes(muhurta.sunset);
@@ -1412,6 +1582,7 @@ function renderAt(date) {
   virtualTime = date.getTime();
   preloadNearbyMoonFrames(date);
   const location = currentLocation();
+  void ensureLocationTimeZone(location);
   const state = approximateState(date);
   updateEarthCore(date, location);
   updateSunVisual(state);
