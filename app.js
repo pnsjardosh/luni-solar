@@ -1492,6 +1492,47 @@ function drawMuhurta(date, location) {
   });
 }
 
+function drawGregorianMonth(date, location) {
+  const grid = document.querySelector("#monthGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
+
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const start = new Date(firstOfMonth);
+  start.setDate(1 - firstOfMonth.getDay());
+
+  for (let i = 0; i < 42; i += 1) {
+    const day = new Date(start);
+    day.setDate(start.getDate() + i);
+    const sample = new Date(day);
+    sample.setHours(12, 0, 0, 0);
+    const state = approximateState(sample);
+    const phase = moonPhaseVisual(state.angle);
+    const muhurta = computeMuhurta(sample, location);
+    const inMonth = day.getMonth() === month;
+    const isToday =
+      day.getFullYear() === date.getFullYear() &&
+      day.getMonth() === date.getMonth() &&
+      day.getDate() === date.getDate();
+
+    const card = document.createElement("article");
+    card.className = `month-day${inMonth ? "" : " muted"}${isToday ? " current" : ""}`;
+    card.innerHTML = `
+      <header>
+        <strong>${day.getDate()}</strong>
+        <div class="mini-moon" style="--shadow-stop:${phase.stop}%;--moon-lit:${phase.lit};--moon-dark:${phase.dark};"></div>
+      </header>
+      <p>${tithis[state.tithiIndex]} (${state.paksha.split(" ")[0]})</p>
+      <p>${nakshatras[state.nakIndex]}</p>
+      <small>Sunrise ${formatMinutes(muhurta.sunrise)} | Sunset ${formatMinutes(muhurta.sunset)}</small>
+      <small>Rahu ${formatMinuteWindow(muhurta.rahu[0], muhurta.rahu[1])}</small>
+    `;
+    grid.appendChild(card);
+  }
+}
+
 function updateNowVisibility(date) {
   nowButton.classList.toggle("hidden", Math.abs(Date.now() - date.getTime()) < nowThresholdMs);
 }
@@ -1590,6 +1631,7 @@ function renderAt(date) {
   drawWheel(state, date, location);
   updateText(state, date, location);
   drawMuhurta(date, location);
+  drawGregorianMonth(date, location);
   updateNowVisibility(date);
   writeAppStateToUrl({
     locationName: location.name,

@@ -20,7 +20,9 @@
             <div id="locationResults" class="location-results" role="listbox"></div>
           </label>
           <details class="manual-coordinates">
-            <summary title="Edit latitude and longitude manually">Manual</summary>
+            <summary title="Edit latitude and longitude manually" aria-label="Edit latitude and longitude manually">
+              <img src="https://cdn-icons-png.flaticon.com/512/3586/3586512.png" alt="" aria-hidden="true" />
+            </summary>
             <div class="manual-coordinate-grid">
               <label>
                 <span>Latitude</span>
@@ -200,6 +202,20 @@
           </article>
         </div>
         <div class="chaughadia-strip" id="chaughadiaStrip" aria-label="Day and night chaughadia periods"></div>
+      </section>
+
+      <section class="gregorian-month-panel" aria-label="Gregorian monthly vedic view">
+        <div class="panel-title">
+          <div>
+            <p class="eyebrow">Gregorian Calendar</p>
+            <h2>Monthly Vedic View</h2>
+          </div>
+          <div class="accuracy-note">Daily values are approximate for selected location</div>
+        </div>
+        <div class="month-weekdays" aria-hidden="true">
+          <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+        </div>
+        <div class="month-grid" id="monthGrid"></div>
       </section>
 
       <section class="journey-panel is-hidden" aria-hidden="true">
