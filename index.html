@@ -75,13 +75,6 @@
               <p class="eyebrow">Vedic Star Map</p>
               <h2>Nakshatra Sky Wheel</h2>
             </div>
-            <div class="phase-chip" id="phaseChip">
-              <div class="phase-chip-visual" id="phaseChipVisual" aria-hidden="true"></div>
-              <div class="phase-chip-text">
-                <strong id="phaseChipTitle">Waxing Moon</strong>
-                <small id="phaseChipMeta">Moon phase</small>
-              </div>
-            </div>
           </div>
           <div class="wheel-wrap">
             <svg id="starChart" viewBox="0 0 3840 3840" aria-hidden="true"></svg>
@@ -106,13 +99,23 @@
             </div>
           </div>
           <dl class="panchang-list reading-cards">
+            <div class="reading-card wide">
+              <dt>Timezone Source</dt>
+              <dd id="timezoneValue">--</dd>
+            </div>
             <div class="reading-card">
               <dt>Tithi</dt>
               <dd id="tithiValue">--</dd>
             </div>
-            <div class="reading-card">
+            <div class="reading-card paksha-card">
               <dt>Paksha</dt>
-              <dd id="pakshaValue">--</dd>
+              <dd id="pakshaValue" class="paksha-inline">
+                <img class="paksha-moon-visual" id="phaseChipVisual" width="36" height="36" alt="" aria-hidden="true" />
+                <span class="paksha-text">
+                  <strong id="pakshaLabel">--</strong>
+                  <small id="phaseLabel">--</small>
+                </span>
+              </dd>
             </div>
             <div class="reading-card wide">
               <dt>Moon Nakshatra</dt>

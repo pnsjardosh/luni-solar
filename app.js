@@ -135,6 +135,7 @@ let wheelPanStartY = 0;
 const locationTimezoneCache = new Map();
 const locationTimezonePending = new Set();
 const timeZoneFormatterCache = new Map();
+const tithiWindowCache = new Map();
 
 const brightStars = [
   { name: "Sirius", ra: 6.7525, dec: -16.7161, mag: -1.46 },
@@ -274,6 +275,54 @@ function formatTime(date) {
 
 function formatWindow(start, end) {
   return `${formatTime(start)} - ${formatTime(end)}`;
+}
+
+function formatLocationClock(date, location) {
+  const key = locationCacheKey(location);
+  const locationTimeZone = locationTimezoneCache.get(key);
+  if (locationTimeZone) {
+    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZone: locationTimeZone });
+  }
+  const shifted = new Date(date.getTime() + localUtcOffsetMinutes(date, location) * 60000);
+  return shifted.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+}
+
+function formatLocationDateTime(date, location) {
+  const key = locationCacheKey(location);
+  const locationTimeZone = locationTimezoneCache.get(key);
+  if (locationTimeZone) {
+    return date.toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: locationTimeZone
+    });
+  }
+  const shifted = new Date(date.getTime() + localUtcOffsetMinutes(date, location) * 60000);
+  return shifted.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "UTC"
+  });
+}
+
+function timezoneStatus(date, location) {
+  const key = locationCacheKey(location);
+  const locationTimeZone = locationTimezoneCache.get(key);
+  if (locationTimeZone) {
+    const profile = detectTimeProfileForZone(date, locationTimeZone);
+    return `Location timezone (${locationTimeZone}, UTC${profile.activeOffset >= 0 ? "+" : ""}${(profile.activeOffset / 60).toFixed(profile.activeOffset % 60 === 0 ? 0 : 1)}${profile.dstActive ? ", DST" : ""})`;
+  }
+  if (APP_CONFIG.time?.autoDetectFromBrowser) {
+    const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Browser";
+    const profile = detectBrowserTimeProfile(date);
+    return `Browser fallback (${browserZone}, UTC${profile.activeOffset >= 0 ? "+" : ""}${(profile.activeOffset / 60).toFixed(profile.activeOffset % 60 === 0 ? 0 : 1)}${profile.dstActive ? ", DST" : ""})`;
+  }
+  const approx = Math.round(location.lon * 4);
+  return `Longitude fallback (UTC${approx >= 0 ? "+" : ""}${(approx / 60).toFixed(approx % 60 === 0 ? 0 : 1)})`;
 }
 
 function localSiderealTime(date, lon) {
@@ -621,11 +670,61 @@ function approximateState(date) {
   };
 }
 
+function tithiIndexAt(date) {
+  const angle = wrap(moonLongitude(date) - sunLongitude(date));
+  return Math.floor(angle / 12);
+}
+
+function findTithiBoundary(anchorDate, direction, currentTithi) {
+  const hourMs = 60 * 60 * 1000;
+  let near = new Date(anchorDate);
+  for (let i = 0; i < 96; i += 1) {
+    const probe = new Date(near.getTime() + direction * hourMs);
+    if (tithiIndexAt(probe) !== currentTithi) {
+      let lo;
+      let hi;
+      if (direction > 0) {
+        lo = near.getTime();
+        hi = probe.getTime();
+        while (hi - lo > 1000) {
+          const mid = Math.floor((lo + hi) / 2);
+          if (tithiIndexAt(new Date(mid)) === currentTithi) lo = mid;
+          else hi = mid;
+        }
+        return new Date(hi);
+      }
+      lo = probe.getTime();
+      hi = near.getTime();
+      while (hi - lo > 1000) {
+        const mid = Math.floor((lo + hi) / 2);
+        if (tithiIndexAt(new Date(mid)) === currentTithi) hi = mid;
+        else lo = mid;
+      }
+      return new Date(hi);
+    }
+    near = probe;
+  }
+  return new Date(anchorDate);
+}
+
+function currentTithiWindow(date) {
+  const state = approximateState(date);
+  const cacheKey = `${state.tithiIndex}:${Math.floor(date.getTime() / (6 * 60 * 60 * 1000))}`;
+  const cached = tithiWindowCache.get(cacheKey);
+  if (cached) return cached;
+  const start = findTithiBoundary(date, -1, state.tithiIndex);
+  const end = findTithiBoundary(date, 1, state.tithiIndex);
+  const window = { start, end, tithiIndex: state.tithiIndex };
+  tithiWindowCache.set(cacheKey, window);
+  return window;
+}
+
 function moonPhaseVisual(angle) {
   const illuminated = (1 - Math.cos(angle * Math.PI / 180)) / 2;
   const stop = Math.round(illuminated * 100);
   const waxing = angle < 180;
   return {
+    illuminated,
     stop,
     lit: waxing ? "#f4f1e7" : "#44505f",
     dark: waxing ? "#44505f" : "#f4f1e7"
@@ -1561,6 +1660,9 @@ function drawGregorianMonth(date, location) {
 
     const card = document.createElement("article");
     card.className = `month-day${inMonth ? "" : " muted"}${isToday ? " current" : ""}`;
+    card.style.setProperty("--moon-illumination", phase.illuminated.toFixed(3));
+    card.style.setProperty("--moon-card-glow", (0.01 + phase.illuminated * 0.34).toFixed(3));
+    card.style.setProperty("--moon-card-border", (0.1 + phase.illuminated * 0.58).toFixed(3));
     card.innerHTML = `
       <header>
         <strong>${day.getDate()}</strong>
@@ -1581,19 +1683,21 @@ function updateNowVisibility(date) {
 }
 
 function updateText(state, date, location) {
-  document.querySelector("#phaseChipTitle").textContent = state.phase;
-  document.querySelector("#phaseChipMeta").textContent = "Moon phase";
+  document.querySelector("#pakshaLabel").textContent = state.paksha.split(" ")[0];
+  document.querySelector("#phaseLabel").textContent = state.phase.startsWith("Waning") ? "Waning moon" : "Waxing moon";
   const phase = moonPhaseVisual(state.angle);
-  const moonUrl = nasaMoonFrameUrl(date);
   if (phaseChipVisual) {
+    const moonUrl = nasaMoonFrameUrl(date);
     phaseChipVisual.style.setProperty("--shadow-stop", `${phase.stop}%`);
     phaseChipVisual.style.setProperty("--moon-lit", phase.lit);
     phaseChipVisual.style.setProperty("--moon-dark", phase.dark);
-    phaseChipVisual.style.setProperty("--moon-image", moonUrl ? `url("${moonUrl}")` : "none");
+    if (moonUrl && phaseChipVisual.tagName === "IMG") {
+      phaseChipVisual.src = moonUrl;
+    }
   }
-  document.querySelector("#localTimeLabel").textContent = formatTime(date);
-  document.querySelector("#tithiValue").textContent = `${state.paksha.split(" ")[0]} ${tithis[state.tithiIndex]} / ${tithiCommon[state.tithiIndex]}`;
-  document.querySelector("#pakshaValue").textContent = state.paksha;
+  document.querySelector("#localTimeLabel").textContent = formatLocationClock(date, location);
+  const tithiWindow = currentTithiWindow(date);
+  document.querySelector("#tithiValue").textContent = `${state.paksha.split(" ")[0]} ${tithis[state.tithiIndex]} / ${tithiCommon[state.tithiIndex]} (${formatLocationDateTime(tithiWindow.start, location)} - ${formatLocationDateTime(tithiWindow.end, location)})`;
   document.querySelector("#nakshatraValue").textContent = `${nakshatras[state.nakIndex]} / ${nakshatraSanskrit[state.nakIndex]} / ${nakshatraCommon[state.nakIndex]}`;
   document.querySelector("#moonRashiValue").textContent = formatRashiName(state.moonRashiIndex);
   document.querySelector("#sunRashiValue").textContent = formatRashiName(state.sunRashiIndex);
@@ -1602,6 +1706,7 @@ function updateText(state, date, location) {
   document.querySelector("#monthValue").textContent = formatMonthName(state);
   document.querySelector("#latValue").textContent = formatCoordinate(location.lat, "lat");
   document.querySelector("#lonValue").textContent = formatCoordinate(location.lon, "lon");
+  document.querySelector("#timezoneValue").textContent = timezoneStatus(date, location);
   document.querySelector("#sunDegree").textContent = `${state.sun.toFixed(1)}°`;
   document.querySelector("#moonDegree").textContent = `${state.moon.toFixed(1)}°`;
 }
