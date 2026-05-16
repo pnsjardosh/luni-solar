@@ -1,4 +1,5 @@
 import { APP_CONFIG } from "./src/config.js";
+import { fetchProductionPanchang } from "./src/panchang-client.js";
 import { readInitialState, writeAppStateToUrl } from "./src/url-state.js";
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -123,6 +124,7 @@ let nakshatraSkyInitialized = false;
 let embedHeightFrame = null;
 let locationSearchTimer = null;
 let lastLocationQuery = "";
+let panchangApiRequest = 0;
 const nowThresholdMs = 5 * 60000;
 let wheelZoom = 1;
 let wheelPanX = 0;
@@ -328,6 +330,11 @@ function timezoneStatus(date, location) {
   }
   const approx = Math.round(location.lon * 4);
   return `Longitude fallback (UTC${approx >= 0 ? "+" : ""}${(approx / 60).toFixed(approx % 60 === 0 ? 0 : 1)})`;
+}
+
+function resolvedLocationTimeZone(location) {
+  const key = locationCacheKey(location);
+  return locationTimezoneCache.get(key) || Intl.DateTimeFormat().resolvedOptions().timeZone || "";
 }
 
 function localSiderealTime(date, lon) {
@@ -1613,6 +1620,15 @@ function formatMonthName(state) {
   return `${prefix}${month} / anchored near ${anchor} / ${note}`;
 }
 
+function formatVikramSamvat(date, state) {
+  const chaitraBoundary = new Date(date.getFullYear(), 2, 22);
+  const samvatYear = date >= chaitraBoundary ? date.getFullYear() + 57 : date.getFullYear() + 56;
+  const [month] = gujaratiMonths[state.monthIndex];
+  const monthName = `${state.isAdhikMonth ? "Adhik " : ""}${month}`;
+  const tithiNumber = (state.tithiIndex % 15) + 1;
+  return `VS ${samvatYear} / ${monthName} / ${state.paksha.split(" ")[0]} ${tithis[state.tithiIndex]} (${tithiNumber}) / approximate`;
+}
+
 function drawMuhurta(date, location) {
   const muhurta = computeMuhurta(date, location);
   const active = muhurta.active;
@@ -1715,11 +1731,43 @@ function updateText(state, date, location) {
   setText("#moonRashiFocus", `${rashiSigns[state.moonRashiIndex]} ${formatRashiName(state.moonRashiIndex)}`);
   setText("#sunRashiFocus", `${rashiSigns[state.sunRashiIndex]} ${formatRashiName(state.sunRashiIndex)}`);
   setText("#monthValue", formatMonthName(state));
+  setText("#vikramSamvatValue", formatVikramSamvat(date, state));
   setText("#latValue", formatCoordinate(location.lat, "lat"));
   setText("#lonValue", formatCoordinate(location.lon, "lon"));
   setText("#timezoneValue", timezoneStatus(date, location));
   setText("#sunDegree", `${state.sun.toFixed(1)}°`);
   setText("#moonDegree", `${state.moon.toFixed(1)}°`);
+}
+
+async function applyProductionPanchang(date, location) {
+  const requestId = ++panchangApiRequest;
+  const timeZone = resolvedLocationTimeZone(location);
+  const data = await fetchProductionPanchang({
+    config: APP_CONFIG.panchang,
+    date,
+    location,
+    timeZone
+  });
+  if (requestId !== panchangApiRequest) return;
+
+  if (!data?.panchang) {
+    setText("#timezoneValue", `${timezoneStatus(date, location)} / Approximate fallback`);
+    return;
+  }
+
+  const { panchang, transitions, engine, time } = data;
+  const tithiStart = transitions?.tithi?.start ? formatLocationDateTime(new Date(transitions.tithi.start), location) : "--";
+  const tithiEnd = transitions?.tithi?.end ? formatLocationDateTime(new Date(transitions.tithi.end), location) : "--";
+  const suffix = engine?.precision === "production" ? "" : " / Approximate fallback";
+  const pakshaShort = panchang.paksha || panchang.tithi?.paksha || "";
+
+  setText("#tithiValue", `${pakshaShort} ${panchang.tithi?.name || "--"} / ${tithiStart} - ${tithiEnd}${suffix}`);
+  setText("#nakshatraValue", `${panchang.nakshatra?.name || "--"} / production panchang${suffix}`);
+  setText("#moonRashiValue", `${panchang.rashi?.moon || "--"} / Moon rashi${suffix}`);
+  setText("#sunRashiValue", `${panchang.rashi?.sun || "--"} / Sun rashi${suffix}`);
+  setText("#monthValue", `${panchang.lunarMonth?.name || "--"}${panchang.lunarMonth?.adhik ? " / Adhik Maas" : ""}${suffix}`);
+  setText("#vikramSamvatValue", `${panchang.vikramSamvat?.label || "--"}${suffix}`);
+  setText("#timezoneValue", `${time?.timezone || timeZone || "UTC"} / ${engine?.name || "panchang-api"} / ${engine?.ayanamsha || "Lahiri"}`);
 }
 
 function drawJourney(date) {
@@ -1791,6 +1839,7 @@ function renderAt(date) {
   updateStarChart(date, location, state.nakIndex);
   drawWheel(state, date, location);
   updateText(state, date, location);
+  void applyProductionPanchang(date, location);
   drawMuhurta(date, location);
   drawGregorianMonth(date, location);
   updateNowVisibility(date);

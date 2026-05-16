@@ -10,6 +10,78 @@ python -m http.server 4173 -b 127.0.0.1
 
 Open `http://127.0.0.1:4173`.
 
+This static server does not run the production Panchang API. In that mode the browser app renders with the approximate fallback engine. Use Vercel for production API testing/deploy.
+
+## Run With Local Panchang API
+
+For local testing of both the static app and `/api/panchang`, run a small Node server that serves files and forwards the API endpoint:
+
+```powershell
+$node = "C:\Users\pnsja\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
+$root = (Get-Location).Path
+$rootJson = $root | ConvertTo-Json -Compress
+$scriptPath = Join-Path $env:TEMP "luni-solar-manual-server.mjs"
+$script = @"
+import http from 'node:http';
+import { createReadStream, existsSync } from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const root = $rootJson;
+const port = 4174;
+const { default: handler } = await import(pathToFileURL(path.join(root, 'api', 'panchang.js')).href);
+const mime = new Map([
+  ['.html', 'text/html; charset=utf-8'],
+  ['.js', 'text/javascript; charset=utf-8'],
+  ['.css', 'text/css; charset=utf-8'],
+  ['.svg', 'image/svg+xml'],
+  ['.jpg', 'image/jpeg'],
+  ['.png', 'image/png']
+]);
+
+http.createServer(async (req, res) => {
+  try {
+    const url = new URL(req.url, 'http://127.0.0.1:' + port);
+    if (url.pathname === '/api/panchang') {
+      await handler(req, res);
+      return;
+    }
+    const target = url.pathname === '/' ? '/index.html' : decodeURIComponent(url.pathname);
+    const filePath = path.normalize(path.join(root, target));
+    if (!filePath.startsWith(root)) return res.writeHead(403).end('Forbidden');
+    if (!existsSync(filePath)) return res.writeHead(404).end('Not found');
+    res.writeHead(200, { 'content-type': mime.get(path.extname(filePath)) || 'application/octet-stream' });
+    createReadStream(filePath).pipe(res);
+  } catch (error) {
+    res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
+    res.end(error?.stack || String(error));
+  }
+}).listen(port, '127.0.0.1', () => console.log('http://127.0.0.1:' + port));
+"@
+Set-Content -LiteralPath $scriptPath -Value $script -Encoding UTF8
+& $node $scriptPath
+```
+
+Open `http://127.0.0.1:4174`.
+
+To check the API directly:
+
+```text
+http://127.0.0.1:4174/api/panchang?lat=23.1765&lon=75.7885&at=2026-05-10T14:11:00.000Z&tz=Asia/Kolkata&tradition=gujarati-vikram
+```
+
+If `swisseph` is not installed locally, this endpoint still returns the full structured response but labels the engine as `approximate-fallback`.
+
+## Production Panchang API
+
+The app includes a Vercel-compatible endpoint at `/api/panchang` for production-grade Panchang data.
+
+```text
+GET /api/panchang?lat=23.1765&lon=75.7885&at=2026-05-10T14:11:00.000Z&tz=Asia/Kolkata&tradition=gujarati-vikram
+```
+
+The endpoint attempts to use Swiss Ephemeris when the `swisseph` package is available in the deployed runtime. If Swiss Ephemeris is unavailable, the response is explicitly labeled `approximate-fallback` so the UI can show fallback status instead of presenting approximate values as production.
+
 ## Project Shape
 
 - `index.html` contains the app shell and script loading order.

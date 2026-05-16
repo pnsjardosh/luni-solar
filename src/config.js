@@ -4,6 +4,11 @@ export const APP_CONFIG = {
     nasaMoonFrameBase: "https://svs.gsfc.nasa.gov/vis/a000000/a005500/a005587/frames/730x730_1x1_30p",
     sunTexture: "./assets/sun-disk.jpg"
   },
+  panchang: {
+    apiBase: "",
+    mode: "production",
+    tradition: "gujarati-vikram"
+  },
   playback: {
     normalMsPerRealMs: 900,
     dayMsPerRealMs: 86400,

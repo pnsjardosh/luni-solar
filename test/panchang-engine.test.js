@@ -1,0 +1,36 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { computeProductionPanchang } from "../src/server/panchang-engine.js";
+
+test("production panchang response has required sections", async () => {
+  const result = await computeProductionPanchang({
+    at: new Date("2026-05-10T14:11:00.000Z"),
+    location: { lat: 23.1765, lon: 75.7885 },
+    timeZone: "Asia/Kolkata",
+    tradition: "gujarati-vikram"
+  });
+
+  assert.equal(result.time.timezone, "Asia/Kolkata");
+  assert.equal(result.engine.ayanamsha, "Lahiri");
+  assert.equal(result.engine.tradition, "gujarati-vikram");
+  assert.ok(result.panchang.tithi.index >= 1 && result.panchang.tithi.index <= 30);
+  assert.ok(result.panchang.nakshatra.index >= 1 && result.panchang.nakshatra.index <= 27);
+  assert.ok(result.panchang.yoga.index >= 1 && result.panchang.yoga.index <= 27);
+  assert.ok(result.panchang.karana.name);
+  assert.ok(result.panchang.vikramSamvat.label.startsWith("VS "));
+});
+
+test("tithi transition window surrounds requested time", async () => {
+  const at = new Date("2026-05-10T14:11:00.000Z");
+  const result = await computeProductionPanchang({
+    at,
+    location: { lat: 40.7282, lon: -74.0776 },
+    timeZone: "America/New_York",
+    tradition: "gujarati-vikram"
+  });
+
+  const start = new Date(result.transitions.tithi.start);
+  const end = new Date(result.transitions.tithi.end);
+  assert.ok(start < at);
+  assert.ok(end > at);
+});
