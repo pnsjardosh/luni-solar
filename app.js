@@ -142,6 +142,7 @@ const engineStatusBeacon = document.querySelector("#engineStatusBeacon");
 const engineStatusLabel = document.querySelector("#engineStatusLabel");
 let lastMuhurtaRenderKey = "";
 let lastMonthRenderKey = "";
+let panchangCardMode = "local";
 
 const brightStars = [
   { name: "Sirius", ra: 6.7525, dec: -16.7161, mag: -1.46 },
@@ -1775,7 +1776,7 @@ function updateNowVisibility(date) {
 function updateText(state, date, location) {
   const pakshaShort = state.paksha.split(" ")[0];
   const phaseText = state.phase.startsWith("Waning") ? "Waning moon" : "Waxing moon";
-  const useProductionCards = APP_CONFIG.panchang?.mode === "production";
+  const useProductionCards = APP_CONFIG.panchang?.mode === "production" && panchangCardMode === "production";
   const pakshaLabel = document.querySelector("#pakshaLabel");
   if (pakshaLabel) pakshaLabel.textContent = pakshaShort;
   else setText("#pakshaValue", `${pakshaShort} / ${phaseText}`);
@@ -1823,11 +1824,13 @@ async function applyProductionPanchang(date, location) {
   if (requestId !== panchangApiRequest) return;
 
   if (!data?.panchang) {
+    panchangCardMode = "local";
     setText("#timezoneValue", timezoneStatus(date, location));
     setEngineStatus("fallback", "Fallback Panchang engine active");
     return;
   }
 
+  panchangCardMode = "production";
   const { panchang, transitions, engine, time } = data;
   const pakshaShort = panchang.paksha || panchang.tithi?.paksha || "";
 
