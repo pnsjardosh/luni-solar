@@ -13,11 +13,15 @@ test("production panchang response has required sections", async () => {
   assert.equal(result.time.timezone, "Asia/Kolkata");
   assert.equal(result.engine.ayanamsha, "Lahiri");
   assert.equal(result.engine.tradition, "gujarati-vikram");
+  assert.equal(result.engine.precision, "production");
+  assert.equal(result.engine.name, "astronomy-engine");
   assert.ok(result.panchang.tithi.index >= 1 && result.panchang.tithi.index <= 30);
   assert.ok(result.panchang.nakshatra.index >= 1 && result.panchang.nakshatra.index <= 27);
   assert.ok(result.panchang.yoga.index >= 1 && result.panchang.yoga.index <= 27);
   assert.ok(result.panchang.karana.name);
   assert.ok(result.panchang.vikramSamvat.label.startsWith("VS "));
+  assert.ok(result.muhurta.sunrise);
+  assert.ok(result.muhurta.sunset);
 });
 
 test("tithi transition window surrounds requested time", async () => {

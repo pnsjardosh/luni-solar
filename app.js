@@ -1759,10 +1759,13 @@ async function applyProductionPanchang(date, location) {
   const tithiStart = transitions?.tithi?.start ? formatLocationDateTime(new Date(transitions.tithi.start), location) : "--";
   const tithiEnd = transitions?.tithi?.end ? formatLocationDateTime(new Date(transitions.tithi.end), location) : "--";
   const suffix = engine?.precision === "production" ? "" : " / Approximate fallback";
+  const engineLabel = engine?.precision === "production"
+    ? (engine?.name || "astronomy-engine")
+    : `${engine?.name || "fallback"} / Approximate fallback`;
   const pakshaShort = panchang.paksha || panchang.tithi?.paksha || "";
 
   setText("#tithiValue", `${pakshaShort} ${panchang.tithi?.name || "--"} / ${tithiStart} - ${tithiEnd}${suffix}`);
-  setText("#nakshatraValue", `${panchang.nakshatra?.name || "--"} / production panchang${suffix}`);
+  setText("#nakshatraValue", `${panchang.nakshatra?.name || "--"} / ${engineLabel}`);
   setText("#moonRashiValue", `${panchang.rashi?.moon || "--"} / Moon rashi${suffix}`);
   setText("#sunRashiValue", `${panchang.rashi?.sun || "--"} / Sun rashi${suffix}`);
   setText("#monthValue", `${panchang.lunarMonth?.name || "--"}${panchang.lunarMonth?.adhik ? " / Adhik Maas" : ""}${suffix}`);

@@ -10,7 +10,7 @@ python -m http.server 4173 -b 127.0.0.1
 
 Open `http://127.0.0.1:4173`.
 
-This static server does not run the production Panchang API. In that mode the browser app renders with the approximate fallback engine. Use Vercel for production API testing/deploy.
+This static server does not run the production Panchang API. For local API testing, use the Node server below or deploy the Vercel endpoint.
 
 ## Run With Local Panchang API
 
@@ -69,7 +69,7 @@ To check the API directly:
 http://127.0.0.1:4174/api/panchang?lat=23.1765&lon=75.7885&at=2026-05-10T14:11:00.000Z&tz=Asia/Kolkata&tradition=gujarati-vikram
 ```
 
-If `swisseph` is not installed locally, this endpoint still returns the full structured response but labels the engine as `approximate-fallback`.
+This endpoint uses the same `astronomy-engine` calculation path as the Vercel deployment, so local API output should match hosted behavior.
 
 ## Production Panchang API
 
@@ -79,7 +79,7 @@ The app includes a Vercel-compatible endpoint at `/api/panchang` for production-
 GET /api/panchang?lat=23.1765&lon=75.7885&at=2026-05-10T14:11:00.000Z&tz=Asia/Kolkata&tradition=gujarati-vikram
 ```
 
-The endpoint returns the full structured Panchang response using the built-in fallback calculator in hosted environments. The response is explicitly labeled `approximate-fallback` so the UI can show status instead of presenting approximate values as production.
+The endpoint returns the full structured Panchang response using `astronomy-engine`, a pure JavaScript ephemeris library that runs on Vercel without native compilation.
 
 ## Project Shape
 

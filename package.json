@@ -9,6 +9,7 @@
   "scripts": {
     "check": "node --check app.js && node --check api/panchang.js && node --check src/server/panchang-engine.js && node --test test/*.test.js"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "astronomy-engine": "^2.1.19"
+  }
 }

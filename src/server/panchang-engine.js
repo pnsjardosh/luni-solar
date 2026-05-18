@@ -1,3 +1,11 @@
+import {
+  Body,
+  EclipticGeoMoon,
+  Observer,
+  SearchRiseSet,
+  SunPosition
+} from "astronomy-engine";
+
 const TITHIS = [
   "Pratipada", "Dvitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami", "Ashtami", "Navami", "Dashami",
   "Ekadashi", "Dvadashi", "Trayodashi", "Chaturdashi", "Purnima",
@@ -21,8 +29,6 @@ const KARANAS = ["Bava", "Balava", "Kaulava", "Taitila", "Garaja", "Vanija", "Vi
 const RASHIS = ["Mesha", "Vrishabha", "Mithuna", "Karka", "Simha", "Kanya", "Tula", "Vrishchika", "Dhanu", "Makara", "Kumbha", "Meena"];
 const MONTHS = ["Kartak", "Magshar", "Posh", "Maha", "Fagan", "Chaitra", "Vaishakh", "Jeth", "Ashadh", "Shravan", "Bhadarvo", "Aaso"];
 
-let swissModulePromise;
-
 function wrap(value, max = 360) {
   return ((value % max) + max) % max;
 }
@@ -44,86 +50,19 @@ function lahiriAyanamsha(date) {
   return 23.85675 + yearsSinceJ2000 * 0.013968;
 }
 
-function fallbackSunLongitude(date) {
-  const d = julianDay(date) - 2451545;
-  const L = wrap(280.46646 + 0.98564736 * d);
-  const g = wrap(357.52911 + 0.98560028 * d);
-  const center = 1.914602 * sinDeg(g) + 0.019993 * sinDeg(2 * g) + 0.000289 * sinDeg(3 * g);
-  return wrap(L + center);
-}
-
-function fallbackMoonLongitude(date) {
-  const d = julianDay(date) - 2451545;
-  const L = wrap(218.3164477 + 13.17639648 * d);
-  const Mm = wrap(134.9633964 + 13.06499295 * d);
-  const Ms = wrap(357.5291092 + 0.98560028 * d);
-  const D = wrap(297.8501921 + 12.19074912 * d);
-  const F = wrap(93.2720950 + 13.22935024 * d);
-  return wrap(
-    L +
-    6.288774 * sinDeg(Mm) +
-    1.274027 * sinDeg(2 * D - Mm) +
-    0.658314 * sinDeg(2 * D) +
-    0.213618 * sinDeg(2 * Mm) -
-    0.185116 * sinDeg(Ms) -
-    0.114332 * sinDeg(2 * F)
-  );
-}
-
-async function loadSwissEphemeris() {
-  if (!swissModulePromise) {
-    swissModulePromise = import("swisseph")
-      .then((module) => module.default || module)
-      .catch(() => null);
-  }
-  return swissModulePromise;
-}
-
-function normalizeSwissResult(result) {
-  if (Array.isArray(result)) return result[0];
-  if (result?.longitude != null) return result.longitude;
-  if (result?.xx?.[0] != null) return result.xx[0];
-  if (result?.data?.[0] != null) return result.data[0];
-  return null;
-}
-
-function calcSwissUt(swe, jd, body, flags) {
-  return new Promise((resolve, reject) => {
-    try {
-      swe.swe_calc_ut(jd, body, flags, (result) => {
-        const longitude = normalizeSwissResult(result);
-        if (Number.isFinite(longitude)) resolve(longitude);
-        else reject(new Error(result?.error || "Swiss Ephemeris returned no longitude"));
-      });
-    } catch (error) {
-      reject(error);
-    }
-  });
-}
-
-async function siderealLongitudes(date) {
-  const swe = await loadSwissEphemeris();
-  if (swe?.swe_calc_ut) {
-    const flags = (swe.SEFLG_SWIEPH || 2) | (swe.SEFLG_SIDEREAL || 65536);
-    if (swe.swe_set_sid_mode && swe.SE_SIDM_LAHIRI != null) {
-      swe.swe_set_sid_mode(swe.SE_SIDM_LAHIRI, 0, 0);
-    }
-    const jd = julianDay(date);
-    const sun = wrap(await calcSwissUt(swe, jd, swe.SE_SUN ?? 0, flags));
-    const moon = wrap(await calcSwissUt(swe, jd, swe.SE_MOON ?? 1, flags));
-    return { sun, moon, source: "swiss-ephemeris" };
-  }
-
+function siderealLongitudes(date) {
   const ayanamsha = lahiriAyanamsha(date);
+  const sun = wrap(SunPosition(date).elon - ayanamsha);
+  const moon = wrap(EclipticGeoMoon(date).lon - ayanamsha);
   return {
-    sun: wrap(fallbackSunLongitude(date) - ayanamsha),
-    moon: wrap(fallbackMoonLongitude(date) - ayanamsha),
-    source: "approximate-fallback"
+    sun,
+    moon,
+    source: "astronomy-engine"
   };
 }
 
-async function panchangStateAt(date) {
-  const { sun, moon, source } = await siderealLongitudes(date);
+function panchangStateAt(date) {
+  const { sun, moon, source } = siderealLongitudes(date);
   const angle = wrap(moon - sun);
   const tithiIndex = Math.floor(angle / 12);
   const nakshatraIndex = Math.floor(moon / (360 / 27));
@@ -165,13 +104,13 @@ async function findBoundary(date, kind, direction, initialIndex) {
   let near = new Date(date);
   for (let i = 0; i < 96; i += 1) {
     const probe = new Date(near.getTime() + direction * hour);
-    const probeIndex = await boundaryIndex(probe, kind);
+    const probeIndex = boundaryIndex(probe, kind);
     if (probeIndex !== initialIndex) {
       let lo = direction > 0 ? near.getTime() : probe.getTime();
       let hi = direction > 0 ? probe.getTime() : near.getTime();
       while (hi - lo > 1000) {
         const mid = Math.floor((lo + hi) / 2);
-        const midIndex = await boundaryIndex(new Date(mid), kind);
+        const midIndex = boundaryIndex(new Date(mid), kind);
         if (direction > 0) {
           if (midIndex === initialIndex) lo = mid;
           else hi = mid;
@@ -188,8 +127,8 @@ async function findBoundary(date, kind, direction, initialIndex) {
   return null;
 }
 
-async function boundaryIndex(date, kind) {
-  const state = await panchangStateAt(date);
+function boundaryIndex(date, kind) {
+  const state = panchangStateAt(date);
   if (kind === "nakshatra") return state.nakshatraIndex;
   if (kind === "yoga") return state.yogaIndex;
   if (kind === "karana") return state.karanaIndex;
@@ -215,6 +154,71 @@ function formatIsoLocal(date, timeZone) {
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`;
 }
 
+function dateKey(date, timeZone) {
+  const parts = timeParts(date, timeZone);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function searchRiseSetIso(body, observer, direction, date, limitDays) {
+  const event = SearchRiseSet(body, observer, direction, date, limitDays, 0);
+  return event?.date instanceof Date ? event.date : null;
+}
+
+function chooseLocalEvent(date, timeZone, ...candidates) {
+  const targetKey = dateKey(date, timeZone);
+  return candidates.find((candidate) => candidate && dateKey(candidate, timeZone) === targetKey) || null;
+}
+
+function timeRange(start, end) {
+  return start && end ? { start: start.toISOString(), end: end.toISOString() } : null;
+}
+
+function weekdayIndex(date, timeZone) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timeZone || "UTC",
+    weekday: "short"
+  });
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(formatter.format(date));
+}
+
+function segmentRange(start, end, segmentIndex) {
+  if (!(start instanceof Date) || !(end instanceof Date)) return null;
+  const segmentMs = (end.getTime() - start.getTime()) / 8;
+  if (!(segmentMs > 0)) return null;
+  const segStart = new Date(start.getTime() + segmentMs * segmentIndex);
+  const segEnd = new Date(start.getTime() + segmentMs * (segmentIndex + 1));
+  return timeRange(segStart, segEnd);
+}
+
+function dayMuhurtas(date, location, timeZone) {
+  const observer = new Observer(location.lat, location.lon, 0);
+  const sunrise = chooseLocalEvent(
+    date,
+    timeZone,
+    searchRiseSetIso(Body.Sun, observer, +1, date, -2),
+    searchRiseSetIso(Body.Sun, observer, +1, date, 2)
+  );
+  const sunset = chooseLocalEvent(
+    date,
+    timeZone,
+    searchRiseSetIso(Body.Sun, observer, -1, date, -2),
+    searchRiseSetIso(Body.Sun, observer, -1, date, 2)
+  );
+  const weekday = weekdayIndex(date, timeZone);
+  const rahuSegments = [7, 1, 6, 4, 5, 3, 2];
+  const yamagandaSegments = [4, 3, 2, 1, 0, 6, 5];
+  const gulikaSegments = [6, 5, 4, 3, 2, 1, 0];
+
+  return {
+    sunrise: sunrise?.toISOString() || null,
+    sunset: sunset?.toISOString() || null,
+    rahuKaal: weekday >= 0 ? segmentRange(sunrise, sunset, rahuSegments[weekday]) : null,
+    yamaganda: weekday >= 0 ? segmentRange(sunrise, sunset, yamagandaSegments[weekday]) : null,
+    gulika: weekday >= 0 ? segmentRange(sunrise, sunset, gulikaSegments[weekday]) : null,
+    chaughadia: []
+  };
+}
+
 function vikramSamvat(date, state, timeZone) {
   const parts = timeParts(date, timeZone);
   const localDate = new Date(Number(parts.year), Number(parts.month) - 1, Number(parts.day));
@@ -229,7 +233,7 @@ function vikramSamvat(date, state, timeZone) {
 }
 
 export async function computeProductionPanchang({ at, location, timeZone = "", tradition = "gujarati-vikram" }) {
-  const state = await panchangStateAt(at);
+  const state = panchangStateAt(at);
   const [tithiStart, tithiEnd, nakshatraStart, nakshatraEnd, yogaStart, yogaEnd, karanaStart, karanaEnd] = await Promise.all([
     findBoundary(at, "tithi", -1, state.tithiIndex),
     findBoundary(at, "tithi", 1, state.tithiIndex),
@@ -241,6 +245,7 @@ export async function computeProductionPanchang({ at, location, timeZone = "", t
     findBoundary(at, "karana", 1, state.karanaIndex)
   ]);
   const samvat = vikramSamvat(at, state, timeZone);
+  const muhurta = dayMuhurtas(at, location, timeZone);
 
   return {
     time: {
@@ -273,20 +278,13 @@ export async function computeProductionPanchang({ at, location, timeZone = "", t
       karana: { start: karanaStart?.toISOString() || null, end: karanaEnd?.toISOString() || null },
       month: { start: null, end: null }
     },
-    muhurta: {
-      sunrise: null,
-      sunset: null,
-      rahuKaal: null,
-      yamaganda: null,
-      gulika: null,
-      chaughadia: []
-    },
+    muhurta,
     engine: {
       name: state.source,
       ayanamsha: "Lahiri",
       tradition,
-      precision: state.source === "swiss-ephemeris" ? "production" : "approximate-fallback",
-      license: state.source === "swiss-ephemeris" ? "Swiss Ephemeris GPL/free-compatible use; review before commercial use" : "fallback"
+      precision: "production",
+      license: "MIT (Astronomy Engine)"
     }
   };
 }
