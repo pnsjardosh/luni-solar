@@ -17,7 +17,6 @@ This static server does not run the production Panchang API. In that mode the br
 For local testing of both the static app and `/api/panchang`, run a small Node server that serves files and forwards the API endpoint:
 
 ```powershell
-$node = "C:\Users\pnsja\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
 $root = (Get-Location).Path
 $rootJson = $root | ConvertTo-Json -Compress
 $scriptPath = Join-Path $env:TEMP "luni-solar-manual-server.mjs"
@@ -59,7 +58,7 @@ http.createServer(async (req, res) => {
 }).listen(port, '127.0.0.1', () => console.log('http://127.0.0.1:' + port));
 "@
 Set-Content -LiteralPath $scriptPath -Value $script -Encoding UTF8
-& $node $scriptPath
+node $scriptPath
 ```
 
 Open `http://127.0.0.1:4174`.
@@ -80,7 +79,7 @@ The app includes a Vercel-compatible endpoint at `/api/panchang` for production-
 GET /api/panchang?lat=23.1765&lon=75.7885&at=2026-05-10T14:11:00.000Z&tz=Asia/Kolkata&tradition=gujarati-vikram
 ```
 
-The endpoint attempts to use Swiss Ephemeris when the `swisseph` package is available in the deployed runtime. If Swiss Ephemeris is unavailable, the response is explicitly labeled `approximate-fallback` so the UI can show fallback status instead of presenting approximate values as production.
+The endpoint returns the full structured Panchang response using the built-in fallback calculator in hosted environments. The response is explicitly labeled `approximate-fallback` so the UI can show status instead of presenting approximate values as production.
 
 ## Project Shape
 
