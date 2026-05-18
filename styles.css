@@ -51,6 +51,107 @@ body::before {
   opacity: 0.55;
 }
 
+.engine-status-beacon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  align-self: end;
+  width: var(--control-size);
+  min-height: var(--control-size);
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(14px);
+}
+
+.engine-status-core {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #8f98aa;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 10px rgba(143, 152, 170, 0.5),
+    0 0 18px rgba(143, 152, 170, 0.25);
+}
+
+.engine-status-core::before,
+.engine-status-core::after {
+  content: "";
+  position: absolute;
+  inset: 50%;
+  width: 2px;
+  height: 14px;
+  margin: -7px 0 0 -1px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+.engine-status-core::after {
+  transform: rotate(90deg);
+}
+
+.engine-status-beacon:hover,
+.engine-status-beacon:focus-visible {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
+}
+
+.engine-status-beacon.pending .engine-status-core {
+  color: #8f98aa;
+  background: #b6bfd2;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 10px rgba(182, 191, 210, 0.55),
+    0 0 20px rgba(182, 191, 210, 0.28);
+}
+
+.engine-status-beacon.swiss .engine-status-core {
+  color: #72ff9f;
+  background: #9cffba;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 12px rgba(114, 255, 159, 0.72),
+    0 0 24px rgba(114, 255, 159, 0.34);
+}
+
+.engine-status-beacon.production .engine-status-core {
+  color: #ffd66a;
+  background: #ffe38c;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 12px rgba(255, 214, 106, 0.72),
+    0 0 24px rgba(255, 214, 106, 0.34);
+}
+
+.engine-status-beacon.fallback .engine-status-core {
+  color: #ff667d;
+  background: #ff91a1;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 12px rgba(255, 102, 125, 0.76),
+    0 0 24px rgba(255, 102, 125, 0.34);
+}
+
+.engine-status-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .app-shell {
   position: relative;
   width: min(1520px, calc(100% - 32px));

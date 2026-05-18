@@ -66,6 +66,17 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 6 6 6-6 6"></path><path d="m5 6 6 6-6 6"></path></svg>
             </button>
           </div>
+          <div
+            id="engineStatusBeacon"
+            class="engine-status-beacon pending"
+            role="status"
+            aria-live="polite"
+            aria-label="Panchang engine status: checking"
+            title="Panchang engine status: checking"
+          >
+            <span class="engine-status-core" aria-hidden="true"></span>
+            <span id="engineStatusLabel" class="engine-status-label">Checking engine</span>
+          </div>
         </div>
       </header>
 
@@ -176,7 +187,7 @@
             <p class="eyebrow">Local Day Timing</p>
             <h2>Muhurta & Chaughadia</h2>
           </div>
-          <div class="accuracy-note">Approximate solar timing</div>
+          <div class="accuracy-note">Solar timing</div>
         </div>
         <div class="muhurta-grid">
           <article class="muhurta-card active">
@@ -220,7 +231,7 @@
             <p class="eyebrow">Gregorian Calendar</p>
             <h2>Monthly Vedic View</h2>
           </div>
-          <div class="accuracy-note">Daily values are approximate for selected location</div>
+          <div class="accuracy-note">Daily values for selected location</div>
         </div>
         <div class="month-weekdays" aria-hidden="true">
           <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>

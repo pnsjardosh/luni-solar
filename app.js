@@ -138,6 +138,10 @@ const locationTimezoneCache = new Map();
 const locationTimezonePending = new Set();
 const timeZoneFormatterCache = new Map();
 const tithiWindowCache = new Map();
+const engineStatusBeacon = document.querySelector("#engineStatusBeacon");
+const engineStatusLabel = document.querySelector("#engineStatusLabel");
+let lastMuhurtaRenderKey = "";
+let lastMonthRenderKey = "";
 
 const brightStars = [
   { name: "Sirius", ra: 6.7525, dec: -16.7161, mag: -1.46 },
@@ -284,6 +288,16 @@ function setText(selector, value) {
   if (element) element.textContent = value;
 }
 
+function setEngineStatus(kind, message) {
+  if (!engineStatusBeacon) return;
+  engineStatusBeacon.classList.remove("pending", "swiss", "production", "fallback");
+  engineStatusBeacon.classList.add(kind);
+  const label = message || "Panchang engine status";
+  engineStatusBeacon.setAttribute("aria-label", label);
+  engineStatusBeacon.setAttribute("title", label);
+  if (engineStatusLabel) engineStatusLabel.textContent = label;
+}
+
 function formatLocationClock(date, location) {
   const key = locationCacheKey(location);
   const locationTimeZone = locationTimezoneCache.get(key);
@@ -316,20 +330,43 @@ function formatLocationDateTime(date, location) {
   });
 }
 
+function locationCalendarParts(date, location) {
+  const key = locationCacheKey(location);
+  const locationTimeZone = locationTimezoneCache.get(key);
+  const options = { year: "numeric", month: "2-digit", day: "2-digit" };
+  if (locationTimeZone) {
+    const formatter = new Intl.DateTimeFormat("en-CA", { ...options, timeZone: locationTimeZone });
+    return Object.fromEntries(formatter.formatToParts(date).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  }
+  const shifted = new Date(date.getTime() + localUtcOffsetMinutes(date, location) * 60000);
+  const formatter = new Intl.DateTimeFormat("en-CA", { ...options, timeZone: "UTC" });
+  return Object.fromEntries(formatter.formatToParts(shifted).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+}
+
+function locationDayKey(date, location) {
+  const parts = locationCalendarParts(date, location);
+  return `${parts.year}-${parts.month}-${parts.day}:${locationCacheKey(location)}`;
+}
+
+function locationMonthKey(date, location) {
+  const parts = locationCalendarParts(date, location);
+  return `${parts.year}-${parts.month}:${locationCacheKey(location)}`;
+}
+
 function timezoneStatus(date, location) {
   const key = locationCacheKey(location);
   const locationTimeZone = locationTimezoneCache.get(key);
   if (locationTimeZone) {
     const profile = detectTimeProfileForZone(date, locationTimeZone);
-    return `Location timezone (${locationTimeZone}, UTC${profile.activeOffset >= 0 ? "+" : ""}${(profile.activeOffset / 60).toFixed(profile.activeOffset % 60 === 0 ? 0 : 1)}${profile.dstActive ? ", DST" : ""})`;
+    return `${locationTimeZone} / UTC${profile.activeOffset >= 0 ? "+" : ""}${(profile.activeOffset / 60).toFixed(profile.activeOffset % 60 === 0 ? 0 : 1)}${profile.dstActive ? " / DST" : ""}`;
   }
   if (APP_CONFIG.time?.autoDetectFromBrowser) {
     const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Browser";
     const profile = detectBrowserTimeProfile(date);
-    return `Browser fallback (${browserZone}, UTC${profile.activeOffset >= 0 ? "+" : ""}${(profile.activeOffset / 60).toFixed(profile.activeOffset % 60 === 0 ? 0 : 1)}${profile.dstActive ? ", DST" : ""})`;
+    return `${browserZone} / UTC${profile.activeOffset >= 0 ? "+" : ""}${(profile.activeOffset / 60).toFixed(profile.activeOffset % 60 === 0 ? 0 : 1)}${profile.dstActive ? " / DST" : ""}`;
   }
   const approx = Math.round(location.lon * 4);
-  return `Longitude fallback (UTC${approx >= 0 ? "+" : ""}${(approx / 60).toFixed(approx % 60 === 0 ? 0 : 1)})`;
+  return `Estimated timezone / UTC${approx >= 0 ? "+" : ""}${(approx / 60).toFixed(approx % 60 === 0 ? 0 : 1)}`;
 }
 
 function resolvedLocationTimeZone(location) {
@@ -1616,7 +1653,28 @@ function updateStarChart(date, location, activeNakIndex) {
 function formatMonthName(state) {
   const [month, anchor, festival] = gujaratiMonths[state.monthIndex];
   const prefix = state.isAdhikMonth ? "Adhik " : "";
-  const note = state.isAdhikMonth ? "intercalary month, approximate" : festival;
+  const note = state.isAdhikMonth ? "intercalary month" : festival;
+  return `${prefix}${month} / anchored near ${anchor} / ${note}`;
+}
+
+function formatNakshatraDisplay(name) {
+  const index = nakshatras.indexOf(name);
+  if (index === -1) return name || "--";
+  return `${nakshatras[index]} / ${nakshatraSanskrit[index]} / ${nakshatraCommon[index]}`;
+}
+
+function formatRashiNameFromVedic(name) {
+  const index = rashiVedic.indexOf(name);
+  if (index === -1) return name || "--";
+  return formatRashiName(index);
+}
+
+function formatMonthDisplay(name, adhik = false) {
+  const index = gujaratiMonths.findIndex(([month]) => month === name);
+  if (index === -1) return `${adhik ? "Adhik " : ""}${name || "--"}`;
+  const [month, anchor, festival] = gujaratiMonths[index];
+  const prefix = adhik ? "Adhik " : "";
+  const note = adhik ? "intercalary month" : festival;
   return `${prefix}${month} / anchored near ${anchor} / ${note}`;
 }
 
@@ -1625,14 +1683,14 @@ function formatVikramSamvat(date, state) {
   const samvatYear = date >= chaitraBoundary ? date.getFullYear() + 57 : date.getFullYear() + 56;
   const [month] = gujaratiMonths[state.monthIndex];
   const monthName = `${state.isAdhikMonth ? "Adhik " : ""}${month}`;
-  const tithiNumber = (state.tithiIndex % 15) + 1;
-  return `VS ${samvatYear} / ${monthName} / ${state.paksha.split(" ")[0]} ${tithis[state.tithiIndex]} (${tithiNumber}) / approximate`;
+  return `VS ${samvatYear} / ${monthName} / ${state.paksha.split(" ")[0]} ${tithis[state.tithiIndex]}`;
 }
 
 function drawMuhurta(date, location) {
   const muhurta = computeMuhurta(date, location);
   const active = muhurta.active;
   const dstOn = isDstActive(date, location, baseUtcOffsetMinutes(location));
+  const dayKey = locationDayKey(date, location);
   document.querySelector("#currentChaughadia").textContent = `${active.name} / ${active.quality}`;
   document.querySelector("#currentChaughadiaWindow").textContent = `${active.period} period, ${formatMinuteWindow(active.start, active.end)}${dstOn ? " (DST)" : ""}`;
   document.querySelector("#currentChaughadiaMeaning").textContent = active.meaning;
@@ -1643,18 +1701,28 @@ function drawMuhurta(date, location) {
   document.querySelector("#gulikaValue").textContent = formatMinuteWindow(muhurta.gulika[0], muhurta.gulika[1]);
 
   const strip = document.querySelector("#chaughadiaStrip");
-  strip.innerHTML = "";
-  muhurta.periods.forEach((period) => {
-    const chip = document.createElement("article");
+  if (lastMuhurtaRenderKey !== dayKey) {
+    strip.innerHTML = "";
+    muhurta.periods.forEach((period, index) => {
+      const chip = document.createElement("article");
+      chip.dataset.periodIndex = String(index);
+      chip.innerHTML = `<span>${period.label} ${period.periodIndex}</span><strong>${period.name} / ${period.quality}</strong><small>${formatMinuteWindow(period.start, period.end)}</small><small>${period.meaning}</small>`;
+      strip.appendChild(chip);
+    });
+    lastMuhurtaRenderKey = dayKey;
+  }
+  Array.from(strip.children).forEach((chip, index) => {
+    const period = muhurta.periods[index];
+    if (!period) return;
     chip.className = `chaughadia-chip ${period.tone}${period.active ? " active" : ""}`;
-    chip.innerHTML = `<span>${period.label} ${period.periodIndex}</span><strong>${period.name} / ${period.quality}</strong><small>${formatMinuteWindow(period.start, period.end)}</small><small>${period.meaning}</small>`;
-    strip.appendChild(chip);
   });
 }
 
 function drawGregorianMonth(date, location) {
   const grid = document.querySelector("#monthGrid");
   if (!grid) return;
+  const monthKey = locationMonthKey(date, location);
+  if (lastMonthRenderKey === monthKey) return;
   grid.innerHTML = "";
 
   const year = date.getFullYear();
@@ -1697,6 +1765,7 @@ function drawGregorianMonth(date, location) {
     `;
     grid.appendChild(card);
   }
+  lastMonthRenderKey = monthKey;
 }
 
 function updateNowVisibility(date) {
@@ -1706,6 +1775,7 @@ function updateNowVisibility(date) {
 function updateText(state, date, location) {
   const pakshaShort = state.paksha.split(" ")[0];
   const phaseText = state.phase.startsWith("Waning") ? "Waning moon" : "Waxing moon";
+  const useProductionCards = APP_CONFIG.panchang?.mode === "production";
   const pakshaLabel = document.querySelector("#pakshaLabel");
   if (pakshaLabel) pakshaLabel.textContent = pakshaShort;
   else setText("#pakshaValue", `${pakshaShort} / ${phaseText}`);
@@ -1723,15 +1793,16 @@ function updateText(state, date, location) {
     }
   }
   setText("#localTimeLabel", formatLocationClock(date, location));
-  const tithiWindow = currentTithiWindow(date);
-  setText("#tithiValue", `${state.paksha.split(" ")[0]} ${tithis[state.tithiIndex]} / ${tithiCommon[state.tithiIndex]} (${formatLocationDateTime(tithiWindow.start, location)} - ${formatLocationDateTime(tithiWindow.end, location)})`);
-  setText("#nakshatraValue", `${nakshatras[state.nakIndex]} / ${nakshatraSanskrit[state.nakIndex]} / ${nakshatraCommon[state.nakIndex]}`);
-  setText("#moonRashiValue", formatRashiName(state.moonRashiIndex));
-  setText("#sunRashiValue", formatRashiName(state.sunRashiIndex));
   setText("#moonRashiFocus", `${rashiSigns[state.moonRashiIndex]} ${formatRashiName(state.moonRashiIndex)}`);
   setText("#sunRashiFocus", `${rashiSigns[state.sunRashiIndex]} ${formatRashiName(state.sunRashiIndex)}`);
-  setText("#monthValue", formatMonthName(state));
-  setText("#vikramSamvatValue", formatVikramSamvat(date, state));
+  if (!useProductionCards) {
+    setText("#tithiValue", `${state.paksha.split(" ")[0]} ${tithis[state.tithiIndex]}`);
+    setText("#nakshatraValue", `${nakshatras[state.nakIndex]} / ${nakshatraSanskrit[state.nakIndex]} / ${nakshatraCommon[state.nakIndex]}`);
+    setText("#moonRashiValue", formatRashiName(state.moonRashiIndex));
+    setText("#sunRashiValue", formatRashiName(state.sunRashiIndex));
+    setText("#monthValue", formatMonthName(state));
+    setText("#vikramSamvatValue", formatVikramSamvat(date, state));
+  }
   setText("#latValue", formatCoordinate(location.lat, "lat"));
   setText("#lonValue", formatCoordinate(location.lon, "lon"));
   setText("#timezoneValue", timezoneStatus(date, location));
@@ -1742,6 +1813,7 @@ function updateText(state, date, location) {
 async function applyProductionPanchang(date, location) {
   const requestId = ++panchangApiRequest;
   const timeZone = resolvedLocationTimeZone(location);
+  setEngineStatus("pending", "Checking Panchang engine");
   const data = await fetchProductionPanchang({
     config: APP_CONFIG.panchang,
     date,
@@ -1751,26 +1823,28 @@ async function applyProductionPanchang(date, location) {
   if (requestId !== panchangApiRequest) return;
 
   if (!data?.panchang) {
-    setText("#timezoneValue", `${timezoneStatus(date, location)} / Approximate fallback`);
+    setText("#timezoneValue", timezoneStatus(date, location));
+    setEngineStatus("fallback", "Fallback Panchang engine active");
     return;
   }
 
   const { panchang, transitions, engine, time } = data;
-  const tithiStart = transitions?.tithi?.start ? formatLocationDateTime(new Date(transitions.tithi.start), location) : "--";
-  const tithiEnd = transitions?.tithi?.end ? formatLocationDateTime(new Date(transitions.tithi.end), location) : "--";
-  const suffix = engine?.precision === "production" ? "" : " / Approximate fallback";
-  const engineLabel = engine?.precision === "production"
-    ? (engine?.name || "astronomy-engine")
-    : `${engine?.name || "fallback"} / Approximate fallback`;
   const pakshaShort = panchang.paksha || panchang.tithi?.paksha || "";
 
-  setText("#tithiValue", `${pakshaShort} ${panchang.tithi?.name || "--"} / ${tithiStart} - ${tithiEnd}${suffix}`);
-  setText("#nakshatraValue", `${panchang.nakshatra?.name || "--"} / ${engineLabel}`);
-  setText("#moonRashiValue", `${panchang.rashi?.moon || "--"} / Moon rashi${suffix}`);
-  setText("#sunRashiValue", `${panchang.rashi?.sun || "--"} / Sun rashi${suffix}`);
-  setText("#monthValue", `${panchang.lunarMonth?.name || "--"}${panchang.lunarMonth?.adhik ? " / Adhik Maas" : ""}${suffix}`);
-  setText("#vikramSamvatValue", `${panchang.vikramSamvat?.label || "--"}${suffix}`);
-  setText("#timezoneValue", `${time?.timezone || timeZone || "UTC"} / ${engine?.name || "panchang-api"} / ${engine?.ayanamsha || "Lahiri"}`);
+  setText("#tithiValue", `${pakshaShort} ${panchang.tithi?.name || "--"}`);
+  setText("#nakshatraValue", formatNakshatraDisplay(panchang.nakshatra?.name || "--"));
+  setText("#moonRashiValue", formatRashiNameFromVedic(panchang.rashi?.moon || "--"));
+  setText("#sunRashiValue", formatRashiNameFromVedic(panchang.rashi?.sun || "--"));
+  setText("#monthValue", formatMonthDisplay(panchang.lunarMonth?.name || "--", Boolean(panchang.lunarMonth?.adhik)));
+  setText("#vikramSamvatValue", `${panchang.vikramSamvat?.label || "--"}`);
+  setText("#timezoneValue", timezoneStatus(date, location));
+  if (engine?.name === "swiss-ephemeris") {
+    setEngineStatus("swiss", "Swiss Ephemeris active");
+  } else if (engine?.precision === "production") {
+    setEngineStatus("production", `${engine?.name || "Production"} active`);
+  } else {
+    setEngineStatus("fallback", `${engine?.name || "Fallback"} active`);
+  }
 }
 
 function drawJourney(date) {
