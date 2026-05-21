@@ -4,10 +4,31 @@ import { readInitialState, writeAppStateToUrl } from "./src/url-state.js";
 
 const urlParams = new URLSearchParams(window.location.search);
 const isEmbedded = urlParams.get("embed") === "1";
+const topbar = document.querySelector(".topbar");
 
 if (isEmbedded) {
   document.body.classList.add("embed-mode");
 }
+
+const mobileLayoutQuery = window.matchMedia("(max-width: 680px)");
+
+function syncLayoutMode() {
+  document.body.dataset.layout = mobileLayoutQuery.matches ? "mobile" : "desktop";
+}
+
+syncLayoutMode();
+if (typeof mobileLayoutQuery.addEventListener === "function") {
+  mobileLayoutQuery.addEventListener("change", syncLayoutMode);
+} else if (typeof mobileLayoutQuery.addListener === "function") {
+  mobileLayoutQuery.addListener(syncLayoutMode);
+}
+
+function syncTopbarScrollState() {
+  topbar?.classList.toggle("is-scrolled", window.scrollY > 24);
+}
+
+syncTopbarScrollState();
+window.addEventListener("scroll", syncTopbarScrollState, { passive: true });
 
 const nakshatras = [
   "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha",
@@ -90,6 +111,7 @@ const starSvg = document.querySelector("#starChart");
 const sunVisual = document.querySelector("#sunVisual");
 const wheelWrap = document.querySelector(".wheel-wrap");
 const dateInput = document.querySelector("#dateInput");
+const timeInput = document.querySelector("#timeInput");
 const nowButton = document.querySelector("#nowButton");
 const geoButton = document.querySelector("#geoButton");
 const phaseChipVisual = document.querySelector("#phaseChipVisual");
@@ -143,6 +165,8 @@ const engineStatusLabel = document.querySelector("#engineStatusLabel");
 let lastMuhurtaRenderKey = "";
 let lastMonthRenderKey = "";
 let panchangCardMode = "local";
+const MAX_MOON_FRAME_CACHE = 96;
+const MAX_LOCATION_TIMEZONE_CACHE = 64;
 
 const brightStars = [
   { name: "Sirius", ra: 6.7525, dec: -16.7161, mag: -1.46 },
@@ -194,9 +218,37 @@ const namedStarColors = {
   Alnair: "#dce8ff"
 };
 
-function toInputValue(date) {
+function toDateInputValue(date) {
   const pad = (value) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function toTimeInputValue(date) {
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function setBoundedMapEntry(map, key, value, maxEntries) {
+  if (map.has(key)) map.delete(key);
+  map.set(key, value);
+  while (map.size > maxEntries) {
+    const oldestKey = map.keys().next().value;
+    map.delete(oldestKey);
+  }
+}
+
+function selectedDateTime() {
+  if (dateInput?.value) {
+    const timeValue = timeInput?.value || "00:00:00";
+    const composed = new Date(`${dateInput.value}T${timeValue}`);
+    if (!Number.isNaN(composed.getTime())) return composed;
+  }
+  return new Date();
+}
+
+function syncDateTimeInputs(date) {
+  if (dateInput) dateInput.value = toDateInputValue(date);
+  if (timeInput) timeInput.value = toTimeInputValue(date);
 }
 
 function wrap(value, max = 360) {
@@ -891,7 +943,7 @@ async function ensureLocationTimeZone(location) {
     if (!response.ok) throw new Error("timezone lookup failed");
     const data = await response.json();
     if (data?.timezone && typeof data.timezone === "string") {
-      locationTimezoneCache.set(key, data.timezone);
+      setBoundedMapEntry(locationTimezoneCache, key, data.timezone, MAX_LOCATION_TIMEZONE_CACHE);
       render();
     }
   } catch {
@@ -1108,7 +1160,7 @@ function preloadMoonFrame(date) {
   const image = new Image();
   image.decoding = "async";
   image.src = url;
-  moonImageCache.set(url, image);
+  setBoundedMapEntry(moonImageCache, url, image, MAX_MOON_FRAME_CACHE);
   return url;
 }
 
@@ -1933,13 +1985,13 @@ function renderAt(date) {
 }
 
 function render() {
-  renderAt(new Date(dateInput.value || Date.now()));
+  renderAt(selectedDateTime());
 }
 
 function syncInputDisplay(force = false) {
   const now = performance.now();
   if (!force && now - lastInputSync < APP_CONFIG.playback.inputSyncIntervalMs) return;
-  dateInput.value = toInputValue(new Date(virtualTime));
+  syncDateTimeInputs(new Date(virtualTime));
   lastInputSync = now;
 }
 
@@ -2051,7 +2103,7 @@ async function searchLocations(query) {
           locationName: locationInput.value,
           lat: Number.parseFloat(latInput.value),
           lon: Number.parseFloat(lonInput.value),
-          date: new Date(dateInput.value || Date.now())
+          date: selectedDateTime()
         }, true);
       });
       locationResults.appendChild(button);
@@ -2066,16 +2118,18 @@ const initialState = readInitialState(APP_CONFIG.defaults);
 locationInput.value = initialState.locationName;
 latInput.value = initialState.lat.toFixed(4);
 lonInput.value = initialState.lon.toFixed(4);
-dateInput.value = toInputValue(Number.isNaN(initialState.date.getTime()) ? new Date() : initialState.date);
+syncDateTimeInputs(Number.isNaN(initialState.date.getTime()) ? new Date() : initialState.date);
 if (urlParams.get("manualCoords") === "1" && manualCoordinates) {
   manualCoordinates.open = true;
 }
-dateInput.addEventListener("input", () => {
+const handleDateTimeInput = () => {
   setPlayback(0, false);
   render();
-});
+};
+dateInput.addEventListener("input", handleDateTimeInput);
+timeInput.addEventListener("input", handleDateTimeInput);
 nowButton.addEventListener("click", () => {
-  dateInput.value = toInputValue(new Date());
+  syncDateTimeInputs(new Date());
   setPlayback(0, false);
   render();
 });
@@ -2110,7 +2164,7 @@ geoButton.addEventListener("click", () => {
         locationName: locationInput.value,
         lat: Number.parseFloat(latInput.value),
         lon: Number.parseFloat(lonInput.value),
-        date: new Date(dateInput.value || Date.now())
+        date: selectedDateTime()
       }, true);
     },
     () => {

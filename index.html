@@ -5,77 +5,87 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vedic Luni Solar Calendar</title>
     <link rel="icon" href="./assets/favicon.svg?v=20260510-3" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=20260510-3" />
+    <link rel="stylesheet" href="./styles.css?v=20260520-layout-4" />
   </head>
   <body>
     <main class="app-shell">
       <header class="topbar">
-        <div>
+        <div class="topbar-brand">
           <p class="eyebrow">Panchang, Muhurta, Local Sky</p>
           <h1>Vedic Luni Solar Calendar</h1>
         </div>
-        <div class="control-strip">
-          <label class="location-field">
-            <span>Location</span>
-            <input id="locationInput" value="Ujjain, India" autocomplete="off" />
-            <div id="locationResults" class="location-results" role="listbox"></div>
-          </label>
-          <details class="manual-coordinates">
-            <summary title="Edit latitude and longitude manually" aria-label="Edit latitude and longitude manually">
-              <img src="https://cdn-icons-png.flaticon.com/512/3586/3586512.png" alt="" aria-hidden="true" />
-            </summary>
-            <div class="manual-coordinate-grid">
-              <label>
-                <span>Latitude</span>
-                <input id="latInput" type="number" step="0.0001" value="23.1765" />
+        <div class="topbar-controls control-strip">
+          <div class="topbar-group topbar-group-location">
+            <label class="location-field">
+              <span>Location</span>
+              <input id="locationInput" value="Ujjain, India" autocomplete="off" />
+              <div id="locationResults" class="location-results" role="listbox"></div>
+            </label>
+            <button id="geoButton" class="icon-button geo-button" type="button" title="Use current location" aria-label="Use current location">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2 4.5 21l7.5-4 7.5 4L12 2Z"></path>
+              </svg>
+            </button>
+            <details class="manual-coordinates">
+              <summary title="Edit latitude and longitude manually" aria-label="Edit latitude and longitude manually">
+                <img src="https://cdn-icons-png.flaticon.com/512/3586/3586512.png" alt="" aria-hidden="true" />
+              </summary>
+              <div class="manual-coordinate-grid">
+                <label>
+                  <span>Latitude</span>
+                  <input id="latInput" type="number" step="0.0001" value="23.1765" />
+                </label>
+                <label>
+                  <span>Longitude</span>
+                  <input id="lonInput" type="number" step="0.0001" value="75.7885" />
+                </label>
+              </div>
+            </details>
+          </div>
+          <div class="topbar-group topbar-group-datetime">
+            <div class="datetime-group">
+              <label class="datetime-field">
+                <span>Date</span>
+                <input id="dateInput" type="date" />
               </label>
-              <label>
-                <span>Longitude</span>
-                <input id="lonInput" type="number" step="0.0001" value="75.7885" />
+              <label class="datetime-field datetime-time-field">
+                <span>Time</span>
+                <input id="timeInput" type="time" step="1" />
               </label>
             </div>
-          </details>
-          <div class="datetime-group">
-            <label class="datetime-field">
-              <span>Date & time</span>
-              <input id="dateInput" type="datetime-local" />
-            </label>
+          </div>
+          <div class="topbar-group topbar-group-transport">
+            <div class="transport" aria-label="Time playback controls">
+              <button id="dayBackButton" class="icon-button" type="button" title="Previous day" aria-label="Previous day">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m11 6-6 6 6 6"></path><path d="m19 6-6 6 6 6"></path></svg>
+              </button>
+              <button id="reverseButton" class="icon-button" type="button" title="Reverse time" aria-label="Reverse time">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17-5-5 5-5"></path><path d="m18 17-5-5 5-5"></path></svg>
+              </button>
+              <button id="pauseButton" class="icon-button active" type="button" title="Play" aria-label="Play">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7Z"></path></svg>
+              </button>
+              <button id="forwardButton" class="icon-button" type="button" title="Forward time" aria-label="Forward time">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 17 5-5-5-5"></path><path d="m6 17 5-5-5-5"></path></svg>
+              </button>
+              <button id="dayForwardButton" class="icon-button" type="button" title="Next day" aria-label="Next day">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 6 6 6-6 6"></path><path d="m5 6 6 6-6 6"></path></svg>
+              </button>
+            </div>
             <button id="nowButton" class="icon-button now-icon-button hidden" type="button" title="Return to current time" aria-label="Return to current time">
               <img src="https://cdn-icons-png.flaticon.com/512/9908/9908282.png" alt="" aria-hidden="true" />
             </button>
-          </div>
-          <button id="geoButton" class="icon-button geo-button" type="button" title="Use current location" aria-label="Use current location">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 2 4.5 21l7.5-4 7.5 4L12 2Z"></path>
-            </svg>
-          </button>
-          <div class="transport" aria-label="Time playback controls">
-            <button id="dayBackButton" class="icon-button" type="button" title="Previous day" aria-label="Previous day">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m11 6-6 6 6 6"></path><path d="m19 6-6 6 6 6"></path></svg>
-            </button>
-            <button id="reverseButton" class="icon-button" type="button" title="Reverse time" aria-label="Reverse time">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17-5-5 5-5"></path><path d="m18 17-5-5 5-5"></path></svg>
-            </button>
-            <button id="pauseButton" class="icon-button active" type="button" title="Play" aria-label="Play">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7Z"></path></svg>
-            </button>
-            <button id="forwardButton" class="icon-button" type="button" title="Forward time" aria-label="Forward time">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 17 5-5-5-5"></path><path d="m6 17 5-5-5-5"></path></svg>
-            </button>
-            <button id="dayForwardButton" class="icon-button" type="button" title="Next day" aria-label="Next day">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 6 6 6-6 6"></path><path d="m5 6 6 6-6 6"></path></svg>
-            </button>
-          </div>
-          <div
-            id="engineStatusBeacon"
-            class="engine-status-beacon pending"
-            role="status"
-            aria-live="polite"
-            aria-label="Panchang engine status: checking"
-            title="Panchang engine status: checking"
-          >
-            <span class="engine-status-core" aria-hidden="true"></span>
-            <span id="engineStatusLabel" class="engine-status-label">Checking engine</span>
+            <div
+              id="engineStatusBeacon"
+              class="engine-status-beacon pending"
+              role="status"
+              aria-live="polite"
+              aria-label="Panchang engine status: checking"
+              title="Panchang engine status: checking"
+            >
+              <span class="engine-status-core" aria-hidden="true"></span>
+              <span id="engineStatusLabel" class="engine-status-label">Checking engine</span>
+            </div>
           </div>
         </div>
       </header>
@@ -263,6 +273,6 @@
     </main>
 
     <script src="./assets/nakshatra-stars.js?v=20260510-3"></script>
-    <script type="module" src="./app.js?v=20260510-3"></script>
+    <script type="module" src="./app.js?v=20260520-layout-4"></script>
   </body>
 </html>

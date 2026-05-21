@@ -1,4 +1,5 @@
 const cache = new Map();
+const MAX_CACHE_ENTRIES = 288;
 
 function cacheKey({ date, location, timeZone, tradition }) {
   const bucket = Math.floor(date.getTime() / (5 * 60 * 1000));
@@ -25,6 +26,11 @@ export async function fetchProductionPanchang({ config, date, location, timeZone
       return response.json();
     })
     .catch(() => null);
+  if (cache.has(key)) cache.delete(key);
   cache.set(key, promise);
+  while (cache.size > MAX_CACHE_ENTRIES) {
+    const oldestKey = cache.keys().next().value;
+    cache.delete(oldestKey);
+  }
   return promise;
 }
