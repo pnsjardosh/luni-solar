@@ -406,6 +406,19 @@ function locationMonthKey(date, location) {
   return `${parts.year}-${parts.month}:${locationCacheKey(location)}`;
 }
 
+function locationMonthParts(date, location) {
+  const parts = locationCalendarParts(date, location);
+  return {
+    year: Number.parseInt(parts.year, 10),
+    month: Number.parseInt(parts.month, 10) - 1,
+    day: Number.parseInt(parts.day, 10)
+  };
+}
+
+function formatGregorianMonthTitle(year, month) {
+  return new Intl.DateTimeFormat([], { month: "long", year: "numeric" }).format(new Date(year, month, 1));
+}
+
 function timezoneStatus(date, location) {
   const key = locationCacheKey(location);
   const locationTimeZone = locationTimezoneCache.get(key);
@@ -1774,12 +1787,15 @@ function drawMuhurta(date, location) {
 function drawGregorianMonth(date, location) {
   const grid = document.querySelector("#monthGrid");
   if (!grid) return;
-  const monthKey = locationMonthKey(date, location);
+  const title = document.querySelector("#monthPanelTitle");
+  const selectedMonth = locationMonthParts(date, location);
+  const monthKey = `${locationMonthKey(date, location)}:${selectedMonth.day}`;
+  if (title) title.textContent = formatGregorianMonthTitle(selectedMonth.year, selectedMonth.month);
   if (lastMonthRenderKey === monthKey) return;
   grid.innerHTML = "";
 
-  const year = date.getFullYear();
-  const month = date.getMonth();
+  const year = selectedMonth.year;
+  const month = selectedMonth.month;
   const firstOfMonth = new Date(year, month, 1);
   const start = new Date(firstOfMonth);
   start.setDate(1 - firstOfMonth.getDay());
@@ -1796,12 +1812,16 @@ function drawGregorianMonth(date, location) {
     const muhurta = computeMuhurta(sample, location);
     const inMonth = day.getMonth() === month;
     const isToday =
-      day.getFullYear() === date.getFullYear() &&
-      day.getMonth() === date.getMonth() &&
-      day.getDate() === date.getDate();
+      day.getFullYear() === selectedMonth.year &&
+      day.getMonth() === selectedMonth.month &&
+      day.getDate() === selectedMonth.day;
+    const isFullMoon = state.tithiIndex === 14;
+    const isNewMoon = state.tithiIndex === 29;
+    const milestoneClass = isFullMoon ? " full-moon" : isNewMoon ? " new-moon" : "";
+    const milestoneLabel = isFullMoon ? "Full Moon" : isNewMoon ? "New Moon" : "";
 
     const card = document.createElement("article");
-    card.className = `month-day${inMonth ? "" : " muted"}${isToday ? " current" : ""}`;
+    card.className = `month-day${inMonth ? "" : " muted"}${isToday ? " current" : ""}${milestoneClass}`;
     card.style.setProperty("--moon-illumination", phase.illuminated.toFixed(3));
     card.style.setProperty("--moon-card-glow", (0.01 + phase.illuminated * 0.34).toFixed(3));
     card.style.setProperty("--moon-card-border", (0.1 + phase.illuminated * 0.58).toFixed(3));
@@ -1812,6 +1832,7 @@ function drawGregorianMonth(date, location) {
         <div class="mini-moon" style="--shadow-stop:${phase.stop}%;--moon-lit:${phase.lit};--moon-dark:${phase.dark};--moon-image:${moonUrl ? `url('${moonUrl}')` : "none"};"></div>
       </header>
       <p>${tithis[state.tithiIndex]} (${state.paksha.split(" ")[0]})</p>
+      ${milestoneLabel ? `<span class="moon-milestone">${milestoneLabel}</span>` : ""}
       <p>${nakshatras[state.nakIndex]}</p>
       <small>Sunrise ${formatMinutes(muhurta.sunrise)} | Sunset ${formatMinutes(muhurta.sunset)}</small>
       <small>Rahu ${formatMinuteWindow(muhurta.rahu[0], muhurta.rahu[1])}</small>
