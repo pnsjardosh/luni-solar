@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vedic Luni Solar Calendar</title>
     <link rel="icon" href="./assets/favicon.svg?v=20260510-3" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=20260526-moon-milestones-1" />
+    <link rel="stylesheet" href="./styles.css?v=20260615-galactic-pole-stars-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -235,6 +235,154 @@
         <div class="chaughadia-strip" id="chaughadiaStrip" aria-label="Day and night chaughadia periods"></div>
       </section>
 
+      <section class="solar-geometry-panel is-hidden" aria-label="Solar geometry and Milankovitch cycle context" aria-hidden="true">
+        <div class="panel-title">
+          <div>
+            <p class="eyebrow">Solar Geometry</p>
+            <h2>Equinox, Tilt & Deep-Time Cycles</h2>
+          </div>
+          <div class="standalone-link-row">
+            <a class="accuracy-note" href="./solar-geometry.html">Open solar screen</a>
+            <a class="accuracy-note" href="./galactic-motion.html">Open galactic screen</a>
+          </div>
+        </div>
+        <div class="solar-timeline-shell">
+          <div class="solar-timeline-controls" aria-label="Solar geometry timeline controls">
+            <div class="solar-playback-buttons" aria-label="Deep-time playback">
+              <button type="button" class="solar-transport-button" id="solarTimelineStepBack" title="Step backward" aria-label="Step backward">-</button>
+              <button type="button" class="solar-transport-button" id="solarTimelineBack" title="Reverse playback" aria-label="Reverse playback">Reverse</button>
+              <button type="button" class="solar-transport-button" id="solarTimelinePlay" aria-pressed="false">Play</button>
+              <button type="button" class="solar-transport-button" id="solarTimelineForward" title="Forward playback" aria-label="Forward playback">Forward</button>
+              <button type="button" class="solar-transport-button" id="solarTimelineStepForward" title="Step forward" aria-label="Step forward">+</button>
+            </div>
+            <div class="solar-scale-buttons" aria-label="Timeline scale">
+              <button type="button" class="solar-scale-button active" data-solar-scale="year">100y/s</button>
+              <button type="button" class="solar-scale-button" data-solar-scale="century">1ky/s</button>
+              <button type="button" class="solar-scale-button" data-solar-scale="10k">10ky/s</button>
+              <button type="button" class="solar-scale-button" data-solar-scale="50k">25ky/s</button>
+            </div>
+            <label class="solar-year-field">
+              <span>Timeline Year</span>
+              <input id="solarTimelineYear" type="number" min="-50000" max="50000" step="1" value="2026" inputmode="numeric">
+            </label>
+            <button type="button" class="solar-reset-button" id="solarTimelineReset">Selected Year</button>
+            <strong class="solar-timeline-range" id="solarTimelineRange">Today / year</strong>
+            <strong class="solar-playback-status" id="solarPlaybackStatus">Paused</strong>
+          </div>
+          <div class="solar-scene-layout">
+            <svg id="solarGeometrySvg" class="solar-geometry-svg" viewBox="0 0 1200 440" role="img" aria-label="Solar geometry timeline visualization"></svg>
+            <aside class="solar-earth-preview" aria-label="Location-centered Earth daylight globe">
+              <div class="solar-earth-canvas-wrap">
+                <canvas id="solarEarthCanvas" width="512" height="512"></canvas>
+                <span class="solar-earth-pin" aria-hidden="true"></span>
+                <span class="solar-subsolar-pin" aria-hidden="true"></span>
+              </div>
+              <strong id="solarGlobeLocation">Selected location</strong>
+              <small id="solarGlobeNote">Subsolar point and terminator update from selected date/time.</small>
+            </aside>
+          </div>
+        </div>
+        <div class="solar-geometry-grid">
+          <article class="solar-card highlight">
+            <span>Vernal Equinox</span>
+            <strong id="vernalEquinoxValue">--</strong>
+            <p>Tropical Sun at 0 deg Aries; sidereal Mesha Sankranti occurs later because of ayanamsha.</p>
+          </article>
+          <article class="solar-card">
+            <span>Next Solar Marker</span>
+            <strong id="nextSolarMarkerValue">--</strong>
+            <p id="nextSolarMarkerNote">Equinoxes and solstices anchor the seasonal year.</p>
+          </article>
+          <article class="solar-card">
+            <span>Obliquity / Aksha Jhukav</span>
+            <strong id="obliquityValue">--</strong>
+            <p>Earth's axial tilt drives solstices, seasons, Uttarayana and Dakshinayana.</p>
+          </article>
+          <article class="solar-card">
+            <span>Eccentricity</span>
+            <strong id="eccentricityValue">--</strong>
+            <p>How elliptical Earth's orbit is; useful for perihelion and aphelion context.</p>
+          </article>
+          <article class="solar-card">
+            <span>Earth-Sun Distance</span>
+            <strong id="earthSunDistanceValue">--</strong>
+            <p>Distance changes through the year, but axial tilt is the main cause of seasons.</p>
+          </article>
+          <article class="solar-card">
+            <span>Ayanamsha</span>
+            <strong id="ayanamshaValue">--</strong>
+            <p>Approximate tropical-to-sidereal offset; tied to precession of the equinoxes.</p>
+          </article>
+          <article class="solar-card deep-time">
+            <span>Deep-Time Obliquity</span>
+            <strong id="deepObliquityValue">--</strong>
+            <p>Educational Milankovitch-scale tilt approximation for the selected timeline year.</p>
+          </article>
+          <article class="solar-card deep-time">
+            <span>Deep-Time Eccentricity</span>
+            <strong id="deepEccentricityValue">--</strong>
+            <p>Long-period orbital shape estimate, useful for climate-cycle visualization.</p>
+          </article>
+          <article class="solar-card deep-time">
+            <span>Precession Phase</span>
+            <strong id="deepPrecessionValue">--</strong>
+            <p>Approximate axial-precession phase over a 25,700-year cycle.</p>
+          </article>
+          <article class="solar-card deep-time">
+            <span>Hemisphere Tilt</span>
+            <strong id="seasonHemisphereValue">--</strong>
+            <p id="seasonHemisphereNote">Which hemisphere is receiving the more direct seasonal sunlight.</p>
+          </article>
+          <article class="solar-card">
+            <span>Subsolar Point</span>
+            <strong id="subsolarValue">--</strong>
+            <p id="polarStateValue">Polar day/night state appears here.</p>
+          </article>
+          <article class="solar-card">
+            <span>Orbit Shape</span>
+            <strong id="orbitShapeValue">--</strong>
+            <p id="orbitDistanceValue">Perihelion and aphelion distances appear here.</p>
+          </article>
+        </div>
+        <div class="solar-phenomena-grid">
+          <article class="solar-feature-panel">
+            <span>Insolation by Latitude</span>
+            <canvas id="solarInsolationCanvas" width="640" height="150"></canvas>
+            <p>Tilt changes how directly sunlight strikes each latitude; distance is secondary for seasons.</p>
+          </article>
+          <article class="solar-feature-panel">
+            <span>Analemma</span>
+            <svg id="solarAnalemmaSvg" viewBox="0 0 320 220" role="img" aria-label="Equation of time and solar declination analemma"></svg>
+            <p>Figure-eight path from equation of time and solar declination at local noon.</p>
+          </article>
+          <article class="solar-feature-panel">
+            <span>Lagrange Points</span>
+            <div class="lagrange-strip" id="lagrangeStrip"></div>
+            <p>Schematic Sun-Earth L1-L5. L1 is useful for solar monitoring; L2 hosts observatories such as JWST.</p>
+          </article>
+          <article class="solar-feature-panel">
+            <span>Eclipse Season</span>
+            <strong id="eclipseValue">--</strong>
+            <p id="eclipseNote">Eclipses require new/full Moon near the lunar nodes.</p>
+          </article>
+          <article class="solar-feature-panel wide">
+            <span>Meteor Shower Calendar</span>
+            <div class="meteor-list" id="meteorList"></div>
+          </article>
+          <article class="solar-feature-panel wide">
+            <span>Observation Mode</span>
+            <div class="observation-list" id="observationList"></div>
+          </article>
+          <article class="solar-feature-panel wide">
+            <span>Compare Time Cycles</span>
+            <div class="calendar-compare-grid" id="calendarCompareGrid"></div>
+          </article>
+        </div>
+        <p class="solar-reference-note">
+          Main date/time controls drive daily Earth rotation and daylight. Solar Geometry playback drives deep-time Milankovitch cycles for obliquity, eccentricity and precession.
+        </p>
+      </section>
+
       <section class="gregorian-month-panel" aria-label="Gregorian monthly vedic view">
         <div class="panel-title">
           <div>
@@ -248,6 +396,24 @@
           <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
         </div>
         <div class="month-grid" id="monthGrid"></div>
+      </section>
+
+      <section class="vedic-year-panel" aria-label="Vedic year month view">
+        <div class="panel-title">
+          <div>
+            <p class="eyebrow">Vedic Year</p>
+            <h2>Vedic Year</h2>
+            <strong id="vedicYearTitle" class="month-panel-title">--</strong>
+          </div>
+          <div class="accuracy-note">Amanta lunar months / approximate</div>
+        </div>
+        <div class="vedic-year-grid" id="vedicYearGrid"></div>
+        <div class="vedic-year-explainer">
+          <strong>How this is calculated</strong>
+          <p>
+            Gujarati New Year starts on Kartak Sud 1, the Shukla Pratipada immediately after the Diwali Amavasya new moon. This view finds that new moon near October-November, starts the year on the following civil day, then follows each next new-moon cycle to map Kartak through Aaso. Adhik months appear when a lunar month has no solar rashi ingress.
+          </p>
+        </div>
       </section>
 
       <section class="journey-panel is-hidden" aria-hidden="true">
@@ -274,6 +440,6 @@
     </main>
 
     <script src="./assets/nakshatra-stars.js?v=20260510-3"></script>
-    <script type="module" src="./app.js?v=20260526-moon-milestones-1"></script>
+    <script type="module" src="./app.js?v=20260615-galactic-pole-stars-1"></script>
   </body>
 </html>

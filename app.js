@@ -1,10 +1,15 @@
 import { APP_CONFIG } from "./src/config.js";
 import { fetchProductionPanchang } from "./src/panchang-client.js";
 import { readInitialState, writeAppStateToUrl } from "./src/url-state.js";
+import { initSolarGeometryTimeline, updateSolarGeometryPanel } from "./src/solar-geometry/view.js";
 
 const urlParams = new URLSearchParams(window.location.search);
 const isEmbedded = urlParams.get("embed") === "1";
 const topbar = document.querySelector(".topbar");
+const TOPBAR_COLLAPSE_SCROLL_Y = 220;
+const TOPBAR_EXPAND_SCROLL_Y = 6;
+let isTopbarCollapsed = false;
+let topbarScrollFrame = 0;
 
 if (isEmbedded) {
   document.body.classList.add("embed-mode");
@@ -24,11 +29,26 @@ if (typeof mobileLayoutQuery.addEventListener === "function") {
 }
 
 function syncTopbarScrollState() {
-  topbar?.classList.toggle("is-scrolled", window.scrollY > 24);
+  if (!topbar) return;
+  const scrollY = window.scrollY;
+  const shouldCollapse = isTopbarCollapsed
+    ? scrollY > TOPBAR_EXPAND_SCROLL_Y
+    : scrollY > TOPBAR_COLLAPSE_SCROLL_Y;
+  if (shouldCollapse === isTopbarCollapsed) return;
+  isTopbarCollapsed = shouldCollapse;
+  topbar.classList.toggle("is-scrolled", isTopbarCollapsed);
+}
+
+function requestTopbarScrollSync() {
+  if (topbarScrollFrame) return;
+  topbarScrollFrame = requestAnimationFrame(() => {
+    topbarScrollFrame = 0;
+    syncTopbarScrollState();
+  });
 }
 
 syncTopbarScrollState();
-window.addEventListener("scroll", syncTopbarScrollState, { passive: true });
+window.addEventListener("scroll", requestTopbarScrollSync, { passive: true });
 
 const nakshatras = [
   "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha",
@@ -40,10 +60,17 @@ const nakshatraSanskrit = [
   "मघा", "पूर्व फाल्गुनी", "उत्तर फाल्गुनी", "हस्त", "चित्रा", "स्वाति", "विशाखा", "अनुराधा", "ज्येष्ठा",
   "मूल", "पूर्वाषाढ़ा", "उत्तराषाढ़ा", "श्रवण", "धनिष्ठा", "शतभिषा", "पूर्व भाद्रपदा", "उत्तर भाद्रपदा", "रेवती"
 ];
+// Reference labels align with the local Stellarium Indian sky-culture HIP paths in
+// assets/nakshatra-stars.js, cross-checked against traditional yogatara names.
 const nakshatraCommon = [
-  "Beta Arietis region", "Aries region", "Pleiades", "Aldebaran region", "Orion region", "Betelgeuse region", "Gemini region", "Cancer region", "Hydra region",
-  "Regulus region", "Leo region", "Denebola region", "Corvus region", "Spica region", "Arcturus region", "Libra region", "Scorpius region", "Antares region",
-  "Galactic center region", "Sagittarius region", "Sagittarius-Capricorn region", "Altair region", "Delphinus region", "Aquarius region", "Pegasus region", "Pegasus-Andromeda region", "Pisces region"
+  "Mesarthim and Sheratan, Aries", "35 Arietis, Lilii Borea and Bharani", "Pleiades cluster, Taurus", "Aldebaran, Taurus", "Meissa and Phi Orionis, Orion", "Betelgeuse, Orion", "Castor and Pollux, Gemini", "Asellus Australis and Theta Cancri", "Epsilon, Delta, Eta and Rho Hydrae",
+  "Regulus, Leo", "Zosma and Chertan, Leo", "Denebola, Leo", "Corvus quadrilateral stars", "Spica, Virgo", "Arcturus, Bootes", "Zuben stars, Libra", "Acrab, Dschubba and Fang, Scorpius", "Antares with nearby Scorpius stars",
+  "Scorpius tail and stinger stars", "Kaus Media and Kaus Australis, Sagittarius", "Nunki and Ascella, Sagittarius", "Altair, Tarazed and Alshain, Aquila", "Sualocin and Delta Delphini", "Sadachbia, Aquarius", "Scheat and Markab, Pegasus", "Algenib with an Andromeda reference star", "Revati / Zeta Piscium, Pisces"
+];
+const nakshatraReferences = [
+  "Mesarthim-Sheratan", "35 Ari-Bharani", "Pleiades", "Aldebaran", "Meissa-Phi Ori", "Betelgeuse", "Castor-Pollux", "Asellus-Theta Cnc", "Epsilon Hydrae",
+  "Regulus", "Zosma-Chertan", "Denebola", "Corvus stars", "Spica", "Arcturus", "Zuben stars", "Acrab-Dschubba", "Antares-Alniyat",
+  "Scorpius tail", "Kaus Australis", "Nunki-Ascella", "Altair-Tarazed", "Sualocin-Delta Del", "Sadachbia", "Scheat-Markab", "Algenib-And star", "Revati"
 ];
 
 const rashis = [
@@ -164,6 +191,7 @@ const engineStatusBeacon = document.querySelector("#engineStatusBeacon");
 const engineStatusLabel = document.querySelector("#engineStatusLabel");
 let lastMuhurtaRenderKey = "";
 let lastMonthRenderKey = "";
+let lastVedicYearRenderKey = "";
 let panchangCardMode = "local";
 const MAX_MOON_FRAME_CACHE = 96;
 const MAX_LOCATION_TIMEZONE_CACHE = 64;
@@ -710,11 +738,19 @@ function arcPath(cx, cy, inner, outer, start, end) {
   return `M ${o1x} ${o1y} A ${outer} ${outer} 0 ${large} 1 ${o2x} ${o2y} L ${i2x} ${i2y} A ${inner} ${inner} 0 ${large} 0 ${i1x} ${i1y} Z`;
 }
 
-function arcLinePath(cx, cy, radius, start, end) {
+function arcLinePath(cx, cy, radius, start, end, sweep = 1) {
   const [x1, y1] = polar(cx, cy, radius, start);
   const [x2, y2] = polar(cx, cy, radius, end);
-  const large = end - start > 180 ? 1 : 0;
-  return `M ${x1} ${y1} A ${radius} ${radius} 0 ${large} 1 ${x2} ${y2}`;
+  const large = Math.abs(end - start) > 180 ? 1 : 0;
+  return `M ${x1} ${y1} A ${radius} ${radius} 0 ${large} ${sweep} ${x2} ${y2}`;
+}
+
+function readableArcLinePath(cx, cy, radius, start, end) {
+  const midpoint = wrap((start + end) / 2);
+  if (midpoint > 90 && midpoint < 270) {
+    return arcLinePath(cx, cy, radius, end, start, 0);
+  }
+  return arcLinePath(cx, cy, radius, start, end);
 }
 
 function lunarAngle(date) {
@@ -1189,6 +1225,26 @@ function drawWheel(state, date, location) {
   const cx = CHART.center;
   const cy = CHART.center;
   const ns = "http://www.w3.org/2000/svg";
+  const arcTextLength = (radius, start, end, inset = 0) => {
+    const degrees = Math.max(1, end - start - inset * 2);
+    return radius * (degrees * Math.PI / 180);
+  };
+  const fitTextPathToArc = (textPath, text, radius, start, end, inset = 2.1) => {
+    const available = arcTextLength(radius, start, end, inset);
+    const estimated = text.length * 25;
+    if (estimated > available * 0.96) {
+      textPath.setAttribute("textLength", (available * 0.96).toFixed(1));
+      textPath.setAttribute("lengthAdjust", "spacingAndGlyphs");
+    } else {
+      textPath.removeAttribute("textLength");
+      textPath.removeAttribute("lengthAdjust");
+    }
+  };
+  const centerTextPath = (textPath) => {
+    textPath.setAttribute("dy", "0.35em");
+    textPath.setAttribute("dominant-baseline", "middle");
+    textPath.setAttribute("alignment-baseline", "middle");
+  };
   const make = (name, attrs = {}) => {
     const el = document.createElementNS(ns, name);
     Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
@@ -1204,16 +1260,31 @@ function drawWheel(state, date, location) {
     const start = index * 360 / 27;
     const end = (index + 1) * 360 / 27;
     const active = index === state.nakIndex;
+    const nameLaneInner = CHART.outerRadius - 8 * CHART.scale;
+    const nameLaneOuter = CHART.outerRadius + 34 * CHART.scale;
+    const referenceLaneInner = CHART.outerRadius - 52 * CHART.scale;
+    const referenceLaneOuter = CHART.outerRadius - 18 * CHART.scale;
     make("path", {
       d: arcPath(
         cx,
         cy,
-        CHART.outerRadius + 4 * CHART.scale,
-        CHART.outerRadius + 26 * CHART.scale,
-        start + 0.9,
-        end - 0.9
+        nameLaneInner,
+        nameLaneOuter,
+        start + 0.35,
+        end - 0.35
       ),
       class: `nakshatra-slice-frame${active ? " active" : ""}`
+    });
+    make("path", {
+      d: arcPath(
+        cx,
+        cy,
+        referenceLaneInner,
+        referenceLaneOuter,
+        start + 0.35,
+        end - 0.35
+      ),
+      class: `nakshatra-reference-frame${active ? " active" : ""}`
     });
     make("path", {
       d: arcPath(cx, cy, CHART.nakshatraInnerRadius, CHART.outerRadius, start, end),
@@ -1224,10 +1295,15 @@ function drawWheel(state, date, location) {
     const words = name.split(" ");
     const lineOne = words.length > 1 ? words.slice(0, Math.ceil(words.length / 2)).join(" ") : name;
     const lineTwo = words.length > 1 ? words.slice(Math.ceil(words.length / 2)).join(" ") : "";
+    const nameLaneHeight = nameLaneOuter - nameLaneInner;
+    const nameLaneMiddle = (nameLaneInner + nameLaneOuter) / 2;
+    const lineOneRadius = lineTwo ? nameLaneInner + nameLaneHeight * 0.33 : nameLaneMiddle;
+    const lineTwoRadius = nameLaneInner + nameLaneHeight * 0.70;
+    const referenceRadius = (referenceLaneInner + referenceLaneOuter) / 2;
     const lineOnePathId = `nak-outer-arc-line1-${index}`;
     const lineOneArc = document.createElementNS(ns, "path");
     lineOneArc.setAttribute("id", lineOnePathId);
-    lineOneArc.setAttribute("d", arcLinePath(cx, cy, CHART.outerRadius + 10 * CHART.scale, start + 2.1, end - 2.1));
+    lineOneArc.setAttribute("d", readableArcLinePath(cx, cy, lineOneRadius, start + 1.4, end - 1.4));
     defs.appendChild(lineOneArc);
 
     const lineOneText = make("text", { class: `nakshatra-arc-label${active ? " active" : ""}` });
@@ -1235,23 +1311,42 @@ function drawWheel(state, date, location) {
     lineOneTextPath.setAttribute("href", `#${lineOnePathId}`);
     lineOneTextPath.setAttribute("startOffset", "50%");
     lineOneTextPath.setAttribute("text-anchor", "middle");
+    centerTextPath(lineOneTextPath);
     lineOneTextPath.textContent = lineOne;
+    fitTextPathToArc(lineOneTextPath, lineOne, lineOneRadius, start, end, 1.4);
     lineOneText.appendChild(lineOneTextPath);
 
     if (lineTwo) {
       const lineTwoPathId = `nak-outer-arc-line2-${index}`;
       const lineTwoArc = document.createElementNS(ns, "path");
       lineTwoArc.setAttribute("id", lineTwoPathId);
-      lineTwoArc.setAttribute("d", arcLinePath(cx, cy, CHART.outerRadius + 25 * CHART.scale, start + 2.1, end - 2.1));
+      lineTwoArc.setAttribute("d", readableArcLinePath(cx, cy, lineTwoRadius, start + 1.4, end - 1.4));
       defs.appendChild(lineTwoArc);
       const lineTwoText = make("text", { class: `nakshatra-arc-label${active ? " active" : ""}` });
       const lineTwoTextPath = document.createElementNS(ns, "textPath");
       lineTwoTextPath.setAttribute("href", `#${lineTwoPathId}`);
       lineTwoTextPath.setAttribute("startOffset", "50%");
       lineTwoTextPath.setAttribute("text-anchor", "middle");
+      centerTextPath(lineTwoTextPath);
       lineTwoTextPath.textContent = lineTwo;
+      fitTextPathToArc(lineTwoTextPath, lineTwo, lineTwoRadius, start, end, 1.4);
       lineTwoText.appendChild(lineTwoTextPath);
     }
+
+    const referencePathId = `nak-reference-arc-${index}`;
+    const referenceArc = document.createElementNS(ns, "path");
+    referenceArc.setAttribute("id", referencePathId);
+    referenceArc.setAttribute("d", readableArcLinePath(cx, cy, referenceRadius, start + 1.4, end - 1.4));
+    defs.appendChild(referenceArc);
+    const referenceText = make("text", { class: `nakshatra-reference-label${active ? " active" : ""}` });
+    const referenceTextPath = document.createElementNS(ns, "textPath");
+    referenceTextPath.setAttribute("href", `#${referencePathId}`);
+    referenceTextPath.setAttribute("startOffset", "50%");
+    referenceTextPath.setAttribute("text-anchor", "middle");
+    centerTextPath(referenceTextPath);
+    referenceTextPath.textContent = nakshatraReferences[index] || nakshatraCommon[index];
+    fitTextPathToArc(referenceTextPath, referenceTextPath.textContent, referenceRadius, start, end, 1.4);
+    referenceText.appendChild(referenceTextPath);
   });
 
   rashis.forEach((name, index) => {
@@ -1279,7 +1374,7 @@ function drawWheel(state, date, location) {
     const rashiLabelPathId = `rashi-arc-${index}`;
     const rashiArc = document.createElementNS(ns, "path");
     rashiArc.setAttribute("id", rashiLabelPathId);
-    rashiArc.setAttribute("d", arcLinePath(cx, cy, CHART.rashiLabelRadius, start + 2.5, end - 2.5));
+    rashiArc.setAttribute("d", readableArcLinePath(cx, cy, CHART.rashiLabelRadius, start + 2.5, end - 2.5));
     defs.appendChild(rashiArc);
     const text = make("text", { class: "rashi-arc-label" });
     const textPath = document.createElementNS(ns, "textPath");
@@ -1842,6 +1937,126 @@ function drawGregorianMonth(date, location) {
   lastMonthRenderKey = monthKey;
 }
 
+function localNoon(date) {
+  const value = new Date(date);
+  value.setHours(12, 0, 0, 0);
+  return value;
+}
+
+function dayAfterNewMoon(newMoon) {
+  const start = new Date(newMoon.getFullYear(), newMoon.getMonth(), newMoon.getDate() + 1);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function findNextNewMoonAfter(date) {
+  const step = 6 * 60 * 60 * 1000;
+  let before = new Date(date);
+  let beforeAngle = lunarAngle(before);
+  for (let i = 1; i < 220; i += 1) {
+    const after = new Date(date.getTime() + i * step);
+    const afterAngle = lunarAngle(after);
+    if (beforeAngle > 300 && afterAngle < 60) {
+      let low = before.getTime();
+      let high = after.getTime();
+      while (high - low > 1000) {
+        const mid = Math.floor((low + high) / 2);
+        if (lunarAngle(new Date(mid)) > 180) low = mid;
+        else high = mid;
+      }
+      return new Date(high);
+    }
+    before = after;
+    beforeAngle = afterAngle;
+  }
+  return new Date(date.getTime() + 29.530588853 * 86400000);
+}
+
+function findDiwaliNewMoon(gregorianYear) {
+  const searchStart = new Date(gregorianYear, 9, 8, 12, 0, 0, 0);
+  const searchEnd = new Date(gregorianYear, 10, 22, 12, 0, 0, 0);
+  const target = new Date(gregorianYear, 10, 1, 12, 0, 0, 0);
+  let probe = searchStart;
+  let best = null;
+
+  for (let i = 0; i < 4; i += 1) {
+    const newMoon = findNextNewMoonAfter(probe);
+    if (newMoon > searchEnd) break;
+    if (!best || Math.abs(newMoon - target) < Math.abs(best - target)) best = newMoon;
+    probe = new Date(newMoon.getTime() + 3 * 86400000);
+  }
+
+  return best || findNextNewMoonAfter(searchStart);
+}
+
+function findBestuVaras(gregorianYear) {
+  return dayAfterNewMoon(findDiwaliNewMoon(gregorianYear));
+}
+
+function vedicYearForDate(date) {
+  const thisYearStart = findBestuVaras(date.getFullYear());
+  const start = date >= thisYearStart ? thisYearStart : findBestuVaras(date.getFullYear() - 1);
+  const nextStart = findBestuVaras(start.getFullYear() + 1);
+  return { start, nextStart, samvat: start.getFullYear() + 57 };
+}
+
+function formatShortDate(date) {
+  return date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+
+function drawVedicYear(date, location) {
+  const grid = document.querySelector("#vedicYearGrid");
+  if (!grid) return;
+  const title = document.querySelector("#vedicYearTitle");
+  const year = vedicYearForDate(date);
+  const key = `${year.start.toISOString().slice(0, 10)}:${locationDayKey(date, location)}`;
+  if (title) title.textContent = `VS ${year.samvat} / ${formatShortDate(year.start)} - ${formatShortDate(new Date(year.nextStart.getTime() - 86400000))}`;
+  if (lastVedicYearRenderKey === key) return;
+  grid.innerHTML = "";
+
+  let monthStart = new Date(year.start);
+  let index = 0;
+  let monthSequenceIndex = 0;
+  let hasAdhikMonth = false;
+  while (monthStart < year.nextStart && index < 14) {
+    const nextNewMoon = findNextNewMoonAfter(new Date(monthStart.getTime() + 18 * 86400000));
+    const nextStart = dayAfterNewMoon(nextNewMoon);
+    const boundedNextStart = nextStart > year.nextStart ? year.nextStart : nextStart;
+    const monthEnd = new Date(nextStart.getTime() - 86400000);
+    const sample = localNoon(new Date(monthStart.getTime() + 6 * 86400000));
+    const state = approximateState(sample);
+    if (state.isAdhikMonth) hasAdhikMonth = true;
+    const phase = moonPhaseVisual(state.angle);
+    const moonUrl = nasaMoonFrameUrl(sample);
+    const [month, anchor, festival] = gujaratiMonths[monthSequenceIndex] || gujaratiMonths[gujaratiMonths.length - 1];
+    const active = date >= monthStart && date < nextStart;
+    const card = document.createElement("article");
+    card.className = `vedic-year-card${active ? " active current" : ""}${state.isAdhikMonth ? " adhik" : ""}`;
+    card.style.setProperty("--moon-illumination", phase.illuminated.toFixed(3));
+    card.style.setProperty("--moon-card-glow", (0.01 + phase.illuminated * 0.34).toFixed(3));
+    card.style.setProperty("--moon-card-border", (0.1 + phase.illuminated * 0.58).toFixed(3));
+    card.innerHTML = `
+      <header>
+        <strong>${String(index + 1).padStart(2, "0")}</strong>
+        <span>${active ? "Current" : "Month"}</span>
+        <div class="mini-moon" style="--shadow-stop:${phase.stop}%;--moon-lit:${phase.lit};--moon-dark:${phase.dark};--moon-image:${moonUrl ? `url('${moonUrl}')` : "none"};"></div>
+      </header>
+      <h3>${state.isAdhikMonth ? "Adhik " : ""}${month}</h3>
+      <p>${formatShortDate(monthStart)} - ${formatShortDate(new Date(boundedNextStart.getTime() - 86400000))}</p>
+      <small>Full-moon anchor: ${anchor}</small>
+      <small>${festival}</small>
+      ${state.isAdhikMonth ? "<em>Intercalary month: no solar rashi ingress between surrounding new moons.</em>" : ""}
+    `;
+    grid.appendChild(card);
+    monthStart = boundedNextStart;
+    if (!state.isAdhikMonth) monthSequenceIndex = Math.min(monthSequenceIndex + 1, gujaratiMonths.length - 1);
+    index += 1;
+  }
+  grid.classList.toggle("has-adhik", hasAdhikMonth || index > 12);
+
+  lastVedicYearRenderKey = key;
+}
+
 function updateNowVisibility(date) {
   nowButton.classList.toggle("hidden", Math.abs(Date.now() - date.getTime()) < nowThresholdMs);
 }
@@ -1994,7 +2209,13 @@ function renderAt(date) {
   updateText(state, date, location);
   void applyProductionPanchang(date, location);
   drawMuhurta(date, location);
+  updateSolarGeometryPanel({
+    date,
+    location,
+    formatDateTime: (value) => formatLocationDateTime(value, location)
+  });
   drawGregorianMonth(date, location);
+  drawVedicYear(date, location);
   updateNowVisibility(date);
   writeAppStateToUrl({
     locationName: location.name,
@@ -2208,6 +2429,7 @@ dayBackButton.addEventListener("click", () => setDayPlayback(-1));
 dayForwardButton.addEventListener("click", () => setDayPlayback(1));
 
 updateTransportButton();
+initSolarGeometryTimeline();
 render();
 window.addEventListener("resize", notifyParentHeight);
 

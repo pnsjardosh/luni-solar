@@ -175,6 +175,7 @@ body.embed-mode .app-shell {
 .panchang-panel,
 .journey-panel,
 .calendar-band,
+.solar-geometry-panel,
 .muhurta-panel {
   border: 1px solid var(--line);
   background: rgba(5, 8, 15, 0.88);
@@ -619,6 +620,7 @@ button:focus-visible,
 .panchang-panel,
 .journey-panel,
 .calendar-band,
+.solar-geometry-panel,
 .muhurta-panel {
   border-radius: 8px;
   padding: 18px;
@@ -1124,8 +1126,604 @@ dd {
 
 .journey-panel,
 .calendar-band,
+.solar-geometry-panel,
 .muhurta-panel {
   margin-top: 16px;
+}
+
+.solar-geometry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.solar-timeline-shell {
+  margin-bottom: 14px;
+  border: 1px solid rgba(154, 224, 255, 0.18);
+  border-radius: 8px;
+  padding: 12px;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(89, 210, 199, 0.13), transparent 12rem),
+    rgba(0, 0, 0, 0.18);
+  overflow-x: auto;
+}
+
+.solar-timeline-controls {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.solar-playback-buttons,
+.solar-scale-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.solar-scale-buttons {
+  flex: 1 1 260px;
+}
+
+.solar-scale-button,
+.solar-transport-button,
+.solar-reset-button {
+  width: auto;
+  min-width: 0;
+  min-height: var(--control-size);
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.solar-transport-button {
+  border-color: rgba(246, 200, 76, 0.22);
+  color: #fff6d6;
+  background: rgba(246, 200, 76, 0.1);
+}
+
+.solar-transport-button.active,
+.solar-transport-button[aria-pressed="true"] {
+  border-color: rgba(246, 200, 76, 0.68);
+  color: #171103;
+  background: linear-gradient(180deg, #ffe89a, var(--gold));
+  box-shadow: 0 0 18px rgba(246, 200, 76, 0.22);
+}
+
+.solar-scale-button.active {
+  border-color: rgba(246, 200, 76, 0.68);
+  color: #171103;
+  background: linear-gradient(180deg, #ffe89a, var(--gold));
+  box-shadow: 0 0 18px rgba(246, 200, 76, 0.22);
+}
+
+.solar-year-field {
+  display: grid;
+  gap: 4px;
+  width: 156px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.solar-year-field input {
+  width: 100%;
+  min-height: var(--control-size);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  padding: 0 10px;
+  color: white;
+  background: rgba(255, 255, 255, 0.08);
+  font: inherit;
+  font-size: 0.84rem;
+  text-transform: none;
+}
+
+.solar-timeline-range {
+  min-height: var(--control-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border: 1px solid rgba(89, 210, 199, 0.2);
+  border-radius: 8px;
+  color: var(--aqua);
+  background: rgba(89, 210, 199, 0.08);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.solar-playback-status {
+  min-height: var(--control-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border: 1px solid rgba(246, 200, 76, 0.18);
+  border-radius: 8px;
+  color: rgba(255, 246, 214, 0.9);
+  background: rgba(246, 200, 76, 0.075);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.solar-geometry-svg {
+  display: block;
+  width: 100%;
+  min-width: 820px;
+  min-height: 250px;
+}
+
+.solar-scene-layout {
+  display: grid;
+  grid-template-columns: minmax(820px, 1fr) minmax(210px, 260px);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.solar-earth-preview {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 9px;
+  min-height: 250px;
+  border: 1px solid rgba(89, 210, 199, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.18);
+  text-align: center;
+  --solar-marker-x: 50%;
+  --solar-marker-y: 50%;
+  --solar-marker-opacity: 1;
+  --solar-subsolar-x: 50%;
+  --solar-subsolar-y: 50%;
+  --solar-subsolar-opacity: 1;
+}
+
+.solar-earth-canvas-wrap {
+  position: relative;
+  width: min(100%, 190px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(89, 210, 199, 0.6);
+  border-radius: 50%;
+  overflow: hidden;
+  background: #031322;
+  box-shadow: 0 0 36px rgba(89, 210, 199, 0.28);
+}
+
+#solarEarthCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.solar-earth-pin {
+  position: absolute;
+  left: var(--solar-marker-x);
+  top: var(--solar-marker-y);
+  width: 15px;
+  height: 15px;
+  transform: translate(-50%, -92%) rotate(45deg);
+  border: 2px solid rgba(255, 255, 255, 0.96);
+  border-radius: 50% 50% 50% 4px;
+  background: rgba(246, 200, 76, 0.92);
+  box-shadow: 0 0 0 5px rgba(246, 200, 76, 0.16), 0 0 18px rgba(246, 200, 76, 0.86);
+  opacity: var(--solar-marker-opacity);
+}
+
+.solar-earth-pin::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: rgba(3, 7, 16, 0.72);
+}
+
+.solar-subsolar-pin {
+  position: absolute;
+  left: var(--solar-subsolar-x);
+  top: var(--solar-subsolar-y);
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+  background: rgba(255, 218, 91, 0.95);
+  box-shadow:
+    0 0 0 7px rgba(246, 200, 76, 0.18),
+    0 0 22px rgba(246, 200, 76, 0.9);
+  opacity: var(--solar-subsolar-opacity);
+}
+
+.solar-subsolar-pin::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.solar-earth-preview strong {
+  color: white;
+  font-size: 0.92rem;
+}
+
+.solar-earth-preview small {
+  color: rgba(238, 245, 252, 0.68);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.solar-svg-title {
+  fill: #eef5fc;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-size: 24px;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.solar-svg-label {
+  fill: rgba(238, 245, 252, 0.78);
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-size: 17px;
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+.solar-svg-mini {
+  fill: rgba(238, 245, 252, 0.74);
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0;
+  paint-order: stroke fill;
+  stroke: rgba(2, 5, 12, 0.8);
+  stroke-width: 3px;
+}
+
+.solar-sun-image {
+  filter: saturate(1.08) brightness(1.08) drop-shadow(0 0 16px rgba(246, 200, 76, 0.88)) drop-shadow(0 0 32px rgba(255, 144, 41, 0.42));
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.solar-earth-group {
+  filter: drop-shadow(0 0 18px rgba(89, 210, 199, 0.45));
+}
+
+.solar-earth-image {
+  filter: saturate(1.1) contrast(1.04) brightness(0.98);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.solar-earth-terminator {
+  pointer-events: none;
+  background: none;
+  fill: url(#solarEarthShade);
+  opacity: 0.9;
+}
+
+.solar-card {
+  min-height: 142px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 13px;
+  background:
+    radial-gradient(circle at 86% 18%, rgba(89, 210, 199, 0.14), transparent 4.4rem),
+    rgba(255, 255, 255, 0.055);
+}
+
+.solar-card.highlight {
+  border-color: rgba(246, 200, 76, 0.38);
+  background:
+    radial-gradient(circle at 86% 18%, rgba(246, 200, 76, 0.2), transparent 4.6rem),
+    rgba(255, 255, 255, 0.06);
+}
+
+.solar-card.deep-time {
+  border-color: rgba(89, 210, 199, 0.2);
+  background:
+    radial-gradient(circle at 86% 18%, rgba(89, 210, 199, 0.16), transparent 4.4rem),
+    rgba(255, 255, 255, 0.052);
+}
+
+.solar-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.solar-card strong {
+  display: block;
+  margin-top: 7px;
+  color: white;
+  font-size: 1.02rem;
+  line-height: 1.25;
+}
+
+.solar-card p,
+.solar-reference-note {
+  margin: 8px 0 0;
+  color: rgba(238, 245, 252, 0.74);
+  font-size: 0.76rem;
+  line-height: 1.42;
+}
+
+.solar-reference-note {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 12px;
+}
+
+.standalone-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.solar-phenomena-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.solar-feature-panel {
+  min-height: 170px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 13px;
+  background:
+    radial-gradient(circle at 86% 18%, rgba(246, 200, 76, 0.11), transparent 4.6rem),
+    rgba(255, 255, 255, 0.052);
+}
+
+.solar-feature-panel.wide {
+  grid-column: span 2;
+}
+
+.solar-feature-panel > span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.solar-feature-panel strong {
+  display: block;
+  margin-top: 8px;
+  color: white;
+  font-size: 0.96rem;
+}
+
+.solar-feature-panel p,
+.solar-empty {
+  margin: 8px 0 0;
+  color: rgba(238, 245, 252, 0.72);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+#solarInsolationCanvas,
+#solarAnalemmaSvg,
+#galacticMotionSvg {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.lagrange-strip,
+.calendar-compare-grid,
+.observation-list,
+.pole-star-grid,
+.meteor-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.lagrange-strip {
+  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+}
+
+.lagrange-strip span,
+.calendar-compare-grid div,
+.observation-list div,
+.pole-star-grid div,
+.meteor-row {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 9px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.lagrange-strip span,
+.calendar-compare-grid span,
+.observation-list span,
+.pole-star-grid span,
+.meteor-row span,
+.meteor-row small,
+.pole-star-grid small,
+.calendar-compare-grid small {
+  display: block;
+  color: rgba(238, 245, 252, 0.72);
+  font-size: 0.73rem;
+  line-height: 1.35;
+}
+
+.calendar-compare-grid,
+.pole-star-grid {
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+}
+
+.meteor-row strong,
+.calendar-compare-grid strong,
+.pole-star-grid strong,
+.observation-list strong {
+  margin: 0 0 3px;
+  color: white;
+  font-size: 0.84rem;
+}
+
+.pole-star-grid div.active {
+  border-color: rgba(246, 200, 76, 0.58);
+  box-shadow: 0 0 18px rgba(246, 200, 76, 0.16);
+}
+
+.galactic-standalone-shell {
+  max-width: 1480px;
+}
+
+.galactic-control-line {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: var(--control-gap);
+  width: 100%;
+}
+
+.galactic-year-group {
+  width: 160px;
+}
+
+.galactic-year-group input {
+  width: 100%;
+}
+
+.galactic-panel {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 18% 4%, rgba(89, 210, 199, 0.12), transparent 20rem),
+    radial-gradient(circle at 82% 14%, rgba(246, 200, 76, 0.12), transparent 22rem),
+    rgba(3, 6, 13, 0.92);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(16px);
+}
+
+.galactic-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.galactic-feature {
+  min-height: 190px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 13px;
+  background:
+    radial-gradient(circle at 86% 18%, rgba(159, 242, 255, 0.09), transparent 5rem),
+    rgba(255, 255, 255, 0.052);
+}
+
+.galactic-feature.wide {
+  grid-column: span 2;
+}
+
+.galactic-feature > span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.galactic-feature p {
+  margin: 9px 0 0;
+  color: rgba(238, 245, 252, 0.74);
+  font-size: 0.78rem;
+  line-height: 1.42;
+}
+
+#galacticOrbitSvg,
+#poleCycleSvg {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.galactic-stat-grid {
+  display: grid;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.galactic-stat-grid div {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 11px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.galactic-stat-grid strong {
+  display: block;
+  color: white;
+  font-size: 1.16rem;
+}
+
+.galactic-stat-grid small {
+  display: block;
+  margin-top: 3px;
+  color: rgba(238, 245, 252, 0.72);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.galactic-transport-group {
+  display: grid;
+  grid-template-columns: max-content var(--control-size);
+  align-items: end;
+  gap: var(--control-gap);
+  flex: 0 0 auto;
+}
+
+.galactic-transport {
+  align-self: end;
+}
+
+.galactic-pause-icon {
+  display: none;
+}
+
+#galacticPlay.playing .galactic-play-icon {
+  display: none;
+}
+
+#galacticPlay.playing .galactic-pause-icon {
+  display: block;
+}
+
+#galacticReset svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .gregorian-month-panel {
@@ -1317,6 +1915,143 @@ dd {
   box-shadow:
     0 0 0 2px rgba(116, 206, 255, 0.28),
     0 0 16px rgba(116, 206, 255, 0.4);
+}
+
+.vedic-year-panel {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(246, 200, 76, 0.1), transparent 18rem),
+    rgba(5, 8, 15, 0.88);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(16px);
+}
+
+.vedic-year-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  overflow: visible;
+}
+
+.vedic-year-grid.has-adhik {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.vedic-year-card {
+  min-height: 172px;
+  border: 1px solid rgba(255, 255, 255, var(--moon-card-border, 0.14));
+  border-radius: 8px;
+  padding: 8px;
+  background:
+    radial-gradient(circle at 84% 16%, rgba(246, 200, 76, var(--moon-card-glow, 0.06)), transparent 58px),
+    linear-gradient(180deg, rgba(255, 255, 255, calc(var(--moon-illumination, 0.4) * 0.16)), rgba(255, 255, 255, calc(var(--moon-illumination, 0.4) * 0.045))),
+    rgba(2, 6, 12, calc(0.84 - var(--moon-illumination, 0.4) * 0.36));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, calc(var(--moon-illumination, 0.4) * 0.12)),
+    0 0 calc(4px + var(--moon-illumination, 0.4) * 18px) rgba(246, 200, 76, calc(var(--moon-illumination, 0.4) * 0.18));
+}
+
+.vedic-year-card.current {
+  border-color: rgba(246, 200, 76, 0.98);
+  background:
+    linear-gradient(180deg, rgba(246, 200, 76, 0.24), rgba(246, 200, 76, 0.08) 42%, transparent 76%),
+    radial-gradient(circle at 84% 16%, rgba(246, 200, 76, 0.42), transparent 62px),
+    rgba(35, 24, 7, 0.72);
+  box-shadow:
+    inset 0 0 0 2px rgba(246, 200, 76, 0.62),
+    0 0 0 2px rgba(246, 200, 76, 0.16),
+    0 0 24px rgba(246, 200, 76, 0.24);
+}
+
+.vedic-year-card.adhik {
+  border-color: rgba(89, 210, 199, 0.45);
+  background:
+    radial-gradient(circle at 84% 18%, rgba(89, 210, 199, 0.2), transparent 68px),
+    rgba(7, 34, 38, 0.34);
+}
+
+.vedic-year-card.current.adhik {
+  border-color: rgba(246, 200, 76, 0.98);
+}
+
+.vedic-year-card header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.vedic-year-card header strong {
+  color: white;
+  font-size: 0.94rem;
+}
+
+.vedic-year-card.current header strong {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: #171103;
+  background: var(--gold);
+  box-shadow: 0 0 16px rgba(246, 200, 76, 0.42);
+}
+
+.vedic-year-card header span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.vedic-year-card .mini-moon {
+  margin-left: auto;
+}
+
+.vedic-year-card h3 {
+  margin: 0 0 5px;
+  color: white;
+  font-size: clamp(0.82rem, 0.8vw, 1rem);
+  line-height: 1.2;
+}
+
+.vedic-year-card p,
+.vedic-year-card small,
+.vedic-year-card em {
+  display: block;
+  margin: 0 0 4px;
+  color: rgba(238, 245, 252, calc(0.78 + var(--moon-illumination, 0.4) * 0.22));
+  font-size: clamp(0.62rem, 0.62vw, 0.7rem);
+  font-style: normal;
+  line-height: 1.34;
+}
+
+.vedic-year-card em {
+  color: #f6c84c;
+  font-weight: 800;
+}
+
+.vedic-year-explainer {
+  margin-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 12px;
+}
+
+.vedic-year-explainer strong {
+  color: white;
+  font-size: 0.9rem;
+}
+
+.vedic-year-explainer p {
+  max-width: 980px;
+  margin: 6px 0 0;
+  color: rgba(238, 245, 252, 0.74);
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .mini-moon {
@@ -1641,21 +2376,50 @@ dd {
   stroke-width: 3px;
 }
 
+.nakshatra-reference-frame {
+  fill: rgba(89, 210, 199, 0.055);
+  stroke: rgba(124, 220, 255, 0.28);
+  stroke-width: 2px;
+}
+
 .nakshatra-slice-frame.active {
   fill: rgba(246, 200, 76, 0.16);
   stroke: rgba(246, 200, 76, 0.86);
   filter: drop-shadow(0 0 8px rgba(246, 200, 76, 0.28));
 }
 
+.nakshatra-reference-frame.active {
+  fill: rgba(124, 220, 255, 0.12);
+  stroke: rgba(124, 220, 255, 0.78);
+  filter: drop-shadow(0 0 8px rgba(124, 220, 255, 0.22));
+}
+
 .nakshatra-arc-label {
   fill: rgba(241, 251, 255, 0.95);
-  font-size: 40px;
-  font-weight: 700;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-size: 50px;
+  font-weight: 800;
   letter-spacing: 0;
   dominant-baseline: middle;
   paint-order: stroke fill;
-  stroke: rgba(2, 7, 15, 0.92);
-  stroke-width: 4px;
+  stroke: rgba(1, 5, 13, 0.96);
+  stroke-linejoin: round;
+  stroke-width: 6px;
+  text-anchor: middle;
+}
+
+.nakshatra-reference-label {
+  fill: rgba(168, 230, 255, 0.92);
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-size: 50px;
+  font-weight: 750;
+  letter-spacing: 0;
+  dominant-baseline: middle;
+  paint-order: stroke fill;
+  stroke: rgba(1, 5, 13, 0.96);
+  stroke-linejoin: round;
+  stroke-width: 6px;
+  text-anchor: middle;
 }
 
 body.wheel-zoom-active .topbar {
@@ -1696,6 +2460,11 @@ body.wheel-zoom-active .hero-grid {
 .nakshatra-arc-label.active {
   fill: #ffd977;
   stroke: rgba(38, 24, 4, 0.92);
+}
+
+.nakshatra-reference-label.active {
+  fill: #9ff2ff;
+  stroke: rgba(2, 7, 15, 0.96);
 }
 
 .rashi-focus {
@@ -1862,12 +2631,86 @@ body.wheel-zoom-active .hero-grid {
   .panchang-panel,
   .journey-panel,
   .calendar-band,
+  .solar-geometry-panel,
   .muhurta-panel {
     padding: 12px;
   }
 
   .gregorian-month-panel {
     padding: 12px;
+  }
+
+  .vedic-year-panel {
+    padding: 12px;
+  }
+
+  .solar-timeline-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .solar-playback-buttons,
+  .solar-scale-buttons {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .solar-transport-button,
+  .solar-scale-button {
+    flex: 1 1 120px;
+  }
+
+  .solar-year-field,
+  .solar-reset-button,
+  .solar-playback-status,
+  .solar-timeline-range {
+    width: 100%;
+  }
+
+  .solar-geometry-svg {
+    min-width: 760px;
+    min-height: 230px;
+  }
+
+  .solar-scene-layout {
+    grid-template-columns: minmax(760px, 1fr);
+  }
+
+  .solar-earth-preview {
+    width: min(100%, 320px);
+    justify-self: start;
+  }
+
+  .solar-feature-panel.wide {
+    grid-column: auto;
+  }
+
+  .galactic-panel {
+    padding: 12px;
+  }
+
+  .galactic-control-line {
+    justify-content: flex-start;
+  }
+
+  .galactic-year-group {
+    width: min(100%, 160px);
+  }
+
+  .galactic-transport-group {
+    grid-template-columns: max-content var(--control-size);
+  }
+
+  .galactic-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .galactic-feature.wide {
+    grid-column: auto;
+  }
+
+  .standalone-link-row {
+    justify-content: flex-start;
   }
 
   .month-grid {
@@ -1878,6 +2721,11 @@ body.wheel-zoom-active .hero-grid {
   .month-weekdays {
     min-width: 760px;
     grid-template-columns: repeat(7, minmax(96px, 1fr));
+  }
+
+  .vedic-year-grid {
+    grid-template-columns: 1fr;
+    min-width: 0;
   }
 
   .earth-core {

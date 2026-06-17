@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Galactic Motion & Pole Star Simulator</title>
+    <link rel="stylesheet" href="./styles.css?v=20260616-galactic-structure-1" />
+  </head>
+  <body>
+    <main class="app-shell galactic-standalone-shell">
+      <header class="topbar">
+        <div class="topbar-main">
+          <div class="brand">
+            <span>Galaxy</span>
+            <div>
+              <p>Galactic Motion</p>
+              <strong>Solar System Path, Orion Spur & Pole Stars</strong>
+            </div>
+          </div>
+          <div class="topbar-line topbar-line-primary galactic-control-line">
+            <div class="topbar-group galactic-year-group">
+              <label>
+                <span>Deep-Time Year</span>
+                <input id="galacticYearInput" type="number" min="-50000" max="50000" step="1" value="2026" />
+              </label>
+            </div>
+            <div class="topbar-group galactic-transport-group">
+              <div class="transport galactic-transport" aria-label="Deep-time playback controls">
+                <button id="galacticStepBack" class="icon-button" type="button" title="Step back 100 years" aria-label="Step back 100 years">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m11 6-6 6 6 6"></path><path d="m19 6-6 6 6 6"></path></svg>
+                </button>
+                <button id="galacticReverse" class="icon-button" type="button" title="Reverse deep time" aria-label="Reverse deep time">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17-5-5 5-5"></path><path d="m18 17-5-5 5-5"></path></svg>
+                </button>
+                <button id="galacticPlay" class="icon-button active" type="button" title="Play" aria-label="Play" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path class="galactic-play-icon" d="M8 5v14l11-7Z"></path><path class="galactic-pause-icon" d="M8 5v14"></path><path class="galactic-pause-icon" d="M16 5v14"></path></svg>
+                </button>
+                <button id="galacticForward" class="icon-button" type="button" title="Forward deep time" aria-label="Forward deep time">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 17 5-5-5-5"></path><path d="m6 17 5-5-5-5"></path></svg>
+                </button>
+                <button id="galacticStepForward" class="icon-button" type="button" title="Step forward 100 years" aria-label="Step forward 100 years">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 6 6 6-6 6"></path><path d="m5 6 6 6-6 6"></path></svg>
+                </button>
+              </div>
+              <button id="galacticReset" class="icon-button now-icon-button" type="button" title="Reset to current year" aria-label="Reset to current year">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v6h6"></path></svg>
+              </button>
+            </div>
+            <a class="text-button" href="./solar-geometry.html">Solar Geometry</a>
+            <a class="text-button" href="./index.html">Luni-solar app</a>
+          </div>
+        </div>
+      </header>
+
+      <section class="galactic-panel" aria-label="Galactic motion and pole star simulator">
+        <div class="panel-title">
+          <div>
+            <p class="eyebrow">Standalone Screen</p>
+            <h2>Solar System in the Milky Way</h2>
+          </div>
+          <div class="accuracy-note">Schematic / educational scale</div>
+        </div>
+        <div class="galactic-layout">
+          <article class="galactic-feature wide">
+            <span>Galactic Orbit</span>
+            <svg id="galacticOrbitSvg" viewBox="0 0 1100 620" role="img" aria-label="Solar System motion through the Milky Way"></svg>
+            <p id="galacticOrbitNote">--</p>
+          </article>
+          <article class="galactic-feature">
+            <span>Current Context</span>
+            <div class="galactic-stat-grid">
+              <div><strong id="galacticOrbitPercent">--</strong><small>Orbit fraction in selected offset</small></div>
+              <div><strong id="galacticSpeed">--</strong><small>Approximate galactic orbital speed</small></div>
+              <div><strong id="galacticArm">--</strong><small>Local Milky Way structure</small></div>
+            </div>
+          </article>
+          <article class="galactic-feature">
+            <span>Axial Precession</span>
+            <svg id="poleCycleSvg" viewBox="0 0 420 320" role="img" aria-label="Precession pole star cycle"></svg>
+            <p>The pole star changes because Earth's axis slowly traces a circle in the sky over about 25,770 years.</p>
+          </article>
+          <article class="galactic-feature wide">
+            <span>North Pole Star Candidates</span>
+            <div id="northPoleStars" class="pole-star-grid"></div>
+          </article>
+          <article class="galactic-feature wide">
+            <span>South Pole Star Candidates</span>
+            <div id="southPoleStars" class="pole-star-grid"></div>
+          </article>
+        </div>
+        <p class="solar-reference-note">
+          This screen is isolated so it can later become a separate app or repository. Pole-star years are approximate visual guideposts, not high-precision proper-motion ephemerides.
+        </p>
+      </section>
+    </main>
+    <script type="module" src="./src/galactic-motion/standalone.js?v=20260616-galactic-structure-1"></script>
+  </body>
+</html>
