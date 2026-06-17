@@ -1202,6 +1202,10 @@ function nasaMoonFrameUrl(date) {
   return `${APP_CONFIG.assets.nasaMoonFrameBase}/moon.${padded}.jpg`;
 }
 
+function nasaFullMoonFallbackUrl() {
+  return nasaMoonFrameUrl(new Date(2026, 0, 3, 17, 0, 0, 0));
+}
+
 function preloadMoonFrame(date) {
   const url = nasaMoonFrameUrl(date);
   if (!url || moonImageCache.has(url)) return url;
@@ -2024,10 +2028,12 @@ function drawVedicYear(date, location) {
     const boundedNextStart = nextStart > year.nextStart ? year.nextStart : nextStart;
     const monthEnd = new Date(nextStart.getTime() - 86400000);
     const sample = localNoon(new Date(monthStart.getTime() + 6 * 86400000));
+    const fullMoonSample = localNoon(new Date(monthStart.getTime() + 14.75 * 86400000));
     const state = approximateState(sample);
     if (state.isAdhikMonth) hasAdhikMonth = true;
-    const phase = moonPhaseVisual(state.angle);
-    const moonUrl = nasaMoonFrameUrl(sample);
+    const fullMoonState = approximateState(fullMoonSample);
+    const phase = moonPhaseVisual(fullMoonState.angle);
+    const moonUrl = nasaMoonFrameUrl(fullMoonSample) || nasaFullMoonFallbackUrl();
     const [month, anchor, festival] = gujaratiMonths[monthSequenceIndex] || gujaratiMonths[gujaratiMonths.length - 1];
     const active = date >= monthStart && date < nextStart;
     const card = document.createElement("article");
