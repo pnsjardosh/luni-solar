@@ -50,6 +50,41 @@ function requestTopbarScrollSync() {
 syncTopbarScrollState();
 window.addEventListener("scroll", requestTopbarScrollSync, { passive: true });
 
+function setupRenderVisibility() {
+  const selectors = [
+    ".wheel-wrap",
+    ".muhurta-panel",
+    ".solar-geometry-panel",
+    ".gregorian-month-panel",
+    ".vedic-year-panel",
+    ".journey-panel",
+    ".calendar-band"
+  ];
+  selectors.forEach((selector) => {
+    const element = document.querySelector(selector);
+    renderVisibility.set(selector, Boolean(element && !element.classList.contains("is-hidden")));
+  });
+  if (!("IntersectionObserver" in window)) return;
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      const selector = selectors.find((candidate) => entry.target.matches(candidate));
+      if (!selector) return;
+      renderVisibility.set(selector, entry.isIntersecting && !entry.target.classList.contains("is-hidden"));
+      if (entry.isIntersecting && !entry.target.classList.contains("is-hidden")) render();
+    });
+  }, { rootMargin: "260px 0px" });
+  selectors.forEach((selector) => {
+    const element = document.querySelector(selector);
+    if (element) observer.observe(element);
+  });
+}
+
+function shouldRenderSection(selector) {
+  const element = document.querySelector(selector);
+  if (!element || element.classList.contains("is-hidden")) return false;
+  return renderVisibility.get(selector) !== false;
+}
+
 const nakshatras = [
   "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha",
   "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha",
@@ -192,9 +227,15 @@ const engineStatusLabel = document.querySelector("#engineStatusLabel");
 let lastMuhurtaRenderKey = "";
 let lastMonthRenderKey = "";
 let lastVedicYearRenderKey = "";
+let lastPanchangApplyKey = "";
+let lastUrlStateSync = 0;
 let panchangCardMode = "local";
 const MAX_MOON_FRAME_CACHE = 96;
 const MAX_LOCATION_TIMEZONE_CACHE = 64;
+const MAX_VEDIC_YEAR_CACHE = 24;
+const URL_STATE_SYNC_INTERVAL_MS = 1200;
+const renderVisibility = new Map();
+const vedicYearMonthCache = new Map();
 
 const brightStars = [
   { name: "Sirius", ra: 6.7525, dec: -16.7161, mag: -1.46 },
@@ -2008,16 +2049,12 @@ function formatShortDate(date) {
   return date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
 }
 
-function drawVedicYear(date, location) {
-  const grid = document.querySelector("#vedicYearGrid");
-  if (!grid) return;
-  const title = document.querySelector("#vedicYearTitle");
-  const year = vedicYearForDate(date);
-  const key = `${year.start.toISOString().slice(0, 10)}:${locationDayKey(date, location)}`;
-  if (title) title.textContent = `VS ${year.samvat} / ${formatShortDate(year.start)} - ${formatShortDate(new Date(year.nextStart.getTime() - 86400000))}`;
-  if (lastVedicYearRenderKey === key) return;
-  grid.innerHTML = "";
+function getVedicYearMonths(year) {
+  const cacheKey = year.start.toISOString().slice(0, 10);
+  const cached = vedicYearMonthCache.get(cacheKey);
+  if (cached) return cached;
 
+  const months = [];
   let monthStart = new Date(year.start);
   let index = 0;
   let monthSequenceIndex = 0;
@@ -2026,7 +2063,6 @@ function drawVedicYear(date, location) {
     const nextNewMoon = findNextNewMoonAfter(new Date(monthStart.getTime() + 18 * 86400000));
     const nextStart = dayAfterNewMoon(nextNewMoon);
     const boundedNextStart = nextStart > year.nextStart ? year.nextStart : nextStart;
-    const monthEnd = new Date(nextStart.getTime() - 86400000);
     const sample = localNoon(new Date(monthStart.getTime() + 6 * 86400000));
     const fullMoonSample = localNoon(new Date(monthStart.getTime() + 14.75 * 86400000));
     const state = approximateState(sample);
@@ -2035,30 +2071,62 @@ function drawVedicYear(date, location) {
     const phase = moonPhaseVisual(fullMoonState.angle);
     const moonUrl = nasaMoonFrameUrl(fullMoonSample) || nasaFullMoonFallbackUrl();
     const [month, anchor, festival] = gujaratiMonths[monthSequenceIndex] || gujaratiMonths[gujaratiMonths.length - 1];
-    const active = date >= monthStart && date < nextStart;
-    const card = document.createElement("article");
-    card.className = `vedic-year-card${active ? " active current" : ""}${state.isAdhikMonth ? " adhik" : ""}`;
-    card.style.setProperty("--moon-illumination", phase.illuminated.toFixed(3));
-    card.style.setProperty("--moon-card-glow", (0.01 + phase.illuminated * 0.34).toFixed(3));
-    card.style.setProperty("--moon-card-border", (0.1 + phase.illuminated * 0.58).toFixed(3));
-    card.innerHTML = `
-      <header>
-        <strong>${String(index + 1).padStart(2, "0")}</strong>
-        <span>${active ? "Current" : "Month"}</span>
-        <div class="mini-moon" style="--shadow-stop:${phase.stop}%;--moon-lit:${phase.lit};--moon-dark:${phase.dark};--moon-image:${moonUrl ? `url('${moonUrl}')` : "none"};"></div>
-      </header>
-      <h3>${state.isAdhikMonth ? "Adhik " : ""}${month}</h3>
-      <p>${formatShortDate(monthStart)} - ${formatShortDate(new Date(boundedNextStart.getTime() - 86400000))}</p>
-      <small>Full-moon anchor: ${anchor}</small>
-      <small>${festival}</small>
-      ${state.isAdhikMonth ? "<em>Intercalary month: no solar rashi ingress between surrounding new moons.</em>" : ""}
-    `;
-    grid.appendChild(card);
+    months.push({
+      index,
+      month,
+      anchor,
+      festival,
+      start: new Date(monthStart),
+      nextStart: new Date(nextStart),
+      boundedNextStart: new Date(boundedNextStart),
+      isAdhikMonth: state.isAdhikMonth,
+      phase,
+      moonUrl
+    });
     monthStart = boundedNextStart;
     if (!state.isAdhikMonth) monthSequenceIndex = Math.min(monthSequenceIndex + 1, gujaratiMonths.length - 1);
     index += 1;
   }
-  grid.classList.toggle("has-adhik", hasAdhikMonth || index > 12);
+
+  const value = { months, hasAdhikMonth };
+  setBoundedMapEntry(vedicYearMonthCache, cacheKey, value, MAX_VEDIC_YEAR_CACHE);
+  return value;
+}
+
+function drawVedicYear(date, location) {
+  const grid = document.querySelector("#vedicYearGrid");
+  if (!grid) return;
+  const title = document.querySelector("#vedicYearTitle");
+  const year = vedicYearForDate(date);
+  const { months, hasAdhikMonth } = getVedicYearMonths(year);
+  const activeMonth = months.find((month) => date >= month.start && date < month.nextStart);
+  const key = `${year.start.toISOString().slice(0, 10)}:${activeMonth?.index ?? "none"}`;
+  if (title) title.textContent = `VS ${year.samvat} / ${formatShortDate(year.start)} - ${formatShortDate(new Date(year.nextStart.getTime() - 86400000))}`;
+  if (lastVedicYearRenderKey === key) return;
+  grid.innerHTML = "";
+
+  months.forEach((monthData) => {
+    const active = monthData === activeMonth;
+    const card = document.createElement("article");
+    card.className = `vedic-year-card${active ? " active current" : ""}${monthData.isAdhikMonth ? " adhik" : ""}`;
+    card.style.setProperty("--moon-illumination", monthData.phase.illuminated.toFixed(3));
+    card.style.setProperty("--moon-card-glow", (0.01 + monthData.phase.illuminated * 0.34).toFixed(3));
+    card.style.setProperty("--moon-card-border", (0.1 + monthData.phase.illuminated * 0.58).toFixed(3));
+    card.innerHTML = `
+      <header>
+        <strong>${String(monthData.index + 1).padStart(2, "0")}</strong>
+        <span>${active ? "Current" : "Month"}</span>
+        <div class="mini-moon" style="--shadow-stop:${monthData.phase.stop}%;--moon-lit:${monthData.phase.lit};--moon-dark:${monthData.phase.dark};--moon-image:${monthData.moonUrl ? `url('${monthData.moonUrl}')` : "none"};"></div>
+      </header>
+      <h3>${monthData.isAdhikMonth ? "Adhik " : ""}${monthData.month}</h3>
+      <p>${formatShortDate(monthData.start)} - ${formatShortDate(new Date(monthData.boundedNextStart.getTime() - 86400000))}</p>
+      <small>Full-moon anchor: ${monthData.anchor}</small>
+      <small>${monthData.festival}</small>
+      ${monthData.isAdhikMonth ? "<em>Intercalary month: no solar rashi ingress between surrounding new moons.</em>" : ""}
+    `;
+    grid.appendChild(card);
+  });
+  grid.classList.toggle("has-adhik", hasAdhikMonth || months.length > 12);
 
   lastVedicYearRenderKey = key;
 }
@@ -2202,33 +2270,54 @@ function drawMonths(activeIndex) {
   });
 }
 
-function renderAt(date) {
-  virtualTime = date.getTime();
-  preloadNearbyMoonFrames(date);
-  const location = currentLocation();
-  void ensureLocationTimeZone(location);
-  const state = approximateState(date);
-  updateEarthCore(date, location);
-  updateSunVisual(state);
-  updateStarChart(date, location, state.nakIndex);
-  drawWheel(state, date, location);
-  updateText(state, date, location);
+function maybeApplyProductionPanchang(date, location) {
+  const bucketMs = playbackDirection ? 10 * 60000 : 60000;
+  const timeBucket = Math.floor(date.getTime() / bucketMs);
+  const key = `${location.lat.toFixed(4)}:${location.lon.toFixed(4)}:${timeBucket}`;
+  if (key === lastPanchangApplyKey) return;
+  lastPanchangApplyKey = key;
   void applyProductionPanchang(date, location);
-  drawMuhurta(date, location);
-  updateSolarGeometryPanel({
-    date,
-    location,
-    formatDateTime: (value) => formatLocationDateTime(value, location)
-  });
-  drawGregorianMonth(date, location);
-  drawVedicYear(date, location);
-  updateNowVisibility(date);
+}
+
+function maybeWriteUrlState(location, date) {
+  const now = performance.now();
+  if (playbackDirection && now - lastUrlStateSync < URL_STATE_SYNC_INTERVAL_MS) return;
   writeAppStateToUrl({
     locationName: location.name,
     lat: location.lat,
     lon: location.lon,
     date
   });
+  lastUrlStateSync = now;
+}
+
+function renderAt(date) {
+  virtualTime = date.getTime();
+  preloadNearbyMoonFrames(date);
+  const location = currentLocation();
+  void ensureLocationTimeZone(location);
+  const state = approximateState(date);
+  const renderWheel = shouldRenderSection(".wheel-wrap");
+  if (renderWheel) {
+    updateEarthCore(date, location);
+    updateSunVisual(state);
+    updateStarChart(date, location, state.nakIndex);
+    drawWheel(state, date, location);
+  }
+  updateText(state, date, location);
+  maybeApplyProductionPanchang(date, location);
+  if (shouldRenderSection(".muhurta-panel")) drawMuhurta(date, location);
+  if (shouldRenderSection(".solar-geometry-panel")) {
+    updateSolarGeometryPanel({
+      date,
+      location,
+      formatDateTime: (value) => formatLocationDateTime(value, location)
+    });
+  }
+  if (shouldRenderSection(".gregorian-month-panel")) drawGregorianMonth(date, location);
+  if (shouldRenderSection(".vedic-year-panel")) drawVedicYear(date, location);
+  updateNowVisibility(date);
+  maybeWriteUrlState(location, date);
   notifyParentHeight();
 }
 
@@ -2435,6 +2524,7 @@ dayBackButton.addEventListener("click", () => setDayPlayback(-1));
 dayForwardButton.addEventListener("click", () => setDayPlayback(1));
 
 updateTransportButton();
+setupRenderVisibility();
 initSolarGeometryTimeline();
 render();
 window.addEventListener("resize", notifyParentHeight);
