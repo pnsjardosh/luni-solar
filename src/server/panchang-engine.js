@@ -86,6 +86,131 @@ function panchangStateAt(date) {
   };
 }
 
+function lunarAngle(date) {
+  const { sun, moon } = siderealLongitudes(date);
+  return wrap(moon - sun);
+}
+
+function findAdjacentNewMoon(date, direction) {
+  const step = 12 * 3600000 * direction;
+  let end = new Date(date);
+  let endAngle = lunarAngle(end);
+
+  for (let i = 0; i < 80; i += 1) {
+    const start = new Date(end.getTime() - step);
+    const startAngle = lunarAngle(start);
+    const crossed = direction > 0 ? startAngle > endAngle : startAngle < endAngle;
+    if (crossed) {
+      let low = direction > 0 ? start : end;
+      let high = direction > 0 ? end : start;
+      for (let j = 0; j < 24; j += 1) {
+        const mid = new Date((low.getTime() + high.getTime()) / 2);
+        const lowAngle = lunarAngle(low);
+        const midAngle = lunarAngle(mid);
+        if (lowAngle > midAngle) high = mid;
+        else low = mid;
+      }
+      return new Date((low.getTime() + high.getTime()) / 2);
+    }
+    end = start;
+    endAngle = startAngle;
+  }
+
+  return new Date(date.getTime() + direction * 29.530588853 * 86400000);
+}
+
+function isAdhikMonth(date) {
+  const previousNewMoon = findAdjacentNewMoon(date, -1);
+  const nextNewMoon = findAdjacentNewMoon(date, 1);
+  const previousSunRashi = Math.floor(siderealLongitudes(previousNewMoon).sun / 30);
+  const nextSunRashi = Math.floor(siderealLongitudes(nextNewMoon).sun / 30);
+  return previousSunRashi === nextSunRashi;
+}
+
+function findNextNewMoonAfter(date) {
+  const step = 6 * 60 * 60 * 1000;
+  let before = new Date(date);
+  let beforeAngle = lunarAngle(before);
+  for (let i = 1; i < 220; i += 1) {
+    const after = new Date(date.getTime() + i * step);
+    const afterAngle = lunarAngle(after);
+    if (beforeAngle > 300 && afterAngle < 60) {
+      let low = before.getTime();
+      let high = after.getTime();
+      while (high - low > 1000) {
+        const mid = Math.floor((low + high) / 2);
+        if (lunarAngle(new Date(mid)) > 180) low = mid;
+        else high = mid;
+      }
+      return new Date(high);
+    }
+    before = after;
+    beforeAngle = afterAngle;
+  }
+  return new Date(date.getTime() + 29.530588853 * 86400000);
+}
+
+function localCivilDateUtc(date, timeZone, addDays = 0) {
+  const parts = timeParts(date, timeZone);
+  return new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day) + addDays));
+}
+
+function dayAfterNewMoon(newMoon, timeZone) {
+  return localCivilDateUtc(newMoon, timeZone, 1);
+}
+
+function findDiwaliNewMoon(gregorianYear) {
+  const searchStart = new Date(Date.UTC(gregorianYear, 9, 8, 12, 0, 0, 0));
+  const searchEnd = new Date(Date.UTC(gregorianYear, 10, 22, 12, 0, 0, 0));
+  const target = new Date(Date.UTC(gregorianYear, 10, 1, 12, 0, 0, 0));
+  let probe = searchStart;
+  let best = null;
+
+  for (let i = 0; i < 4; i += 1) {
+    const newMoon = findNextNewMoonAfter(probe);
+    if (newMoon > searchEnd) break;
+    if (!best || Math.abs(newMoon - target) < Math.abs(best - target)) best = newMoon;
+    probe = new Date(newMoon.getTime() + 3 * 86400000);
+  }
+
+  return best || findNextNewMoonAfter(searchStart);
+}
+
+function findBestuVaras(gregorianYear, timeZone) {
+  return dayAfterNewMoon(findDiwaliNewMoon(gregorianYear), timeZone);
+}
+
+function gujaratiYearForDate(date, timeZone) {
+  const localDate = localCivilDateUtc(date, timeZone);
+  const year = localDate.getUTCFullYear();
+  const thisYearStart = findBestuVaras(year, timeZone);
+  const start = localDate >= thisYearStart ? thisYearStart : findBestuVaras(year - 1, timeZone);
+  const nextStart = findBestuVaras(start.getUTCFullYear() + 1, timeZone);
+  return { start, nextStart, samvat: start.getUTCFullYear() + 57, localDate };
+}
+
+function gujaratiMonthForDate(date, timeZone) {
+  const year = gujaratiYearForDate(date, timeZone);
+  let monthStart = new Date(year.start);
+  let monthSequenceIndex = 0;
+
+  for (let index = 0; monthStart < year.nextStart && index < 14; index += 1) {
+    const nextNewMoon = findNextNewMoonAfter(new Date(monthStart.getTime() + 18 * 86400000));
+    const nextStart = dayAfterNewMoon(nextNewMoon, timeZone);
+    const boundedNextStart = nextStart > year.nextStart ? year.nextStart : nextStart;
+    const sample = new Date(monthStart.getTime() + 6.5 * 86400000);
+    const adhik = isAdhikMonth(sample);
+    const name = MONTHS[monthSequenceIndex] || MONTHS[MONTHS.length - 1];
+    if (year.localDate >= monthStart && year.localDate < boundedNextStart) {
+      return { name, adhik, year: year.samvat };
+    }
+    monthStart = boundedNextStart;
+    if (!adhik) monthSequenceIndex = Math.min(monthSequenceIndex + 1, MONTHS.length - 1);
+  }
+
+  return { name: MONTHS[0], adhik: false, year: year.samvat };
+}
+
 function karanaForAngle(angle) {
   const halfTithi = Math.floor(angle / 6);
   if (halfTithi === 0) return 7;
@@ -220,15 +345,13 @@ function dayMuhurtas(date, location, timeZone) {
 }
 
 function vikramSamvat(date, state, timeZone) {
-  const parts = timeParts(date, timeZone);
-  const localDate = new Date(Number(parts.year), Number(parts.month) - 1, Number(parts.day));
-  const boundary = new Date(localDate.getFullYear(), 2, 22);
-  const year = localDate >= boundary ? localDate.getFullYear() + 57 : localDate.getFullYear() + 56;
-  const month = MONTHS[state.monthIndex] || MONTHS[0];
+  const monthInfo = gujaratiMonthForDate(date, timeZone);
+  const month = `${monthInfo.adhik ? "Adhik " : ""}${monthInfo.name}`;
   return {
-    year,
-    month,
-    label: `VS ${year} / ${month} / ${state.paksha} ${TITHIS[state.tithiIndex]}`
+    year: monthInfo.year,
+    month: monthInfo.name,
+    adhik: monthInfo.adhik,
+    label: `VS ${monthInfo.year} / ${month} / ${state.paksha} ${TITHIS[state.tithiIndex]}`
   };
 }
 
@@ -266,7 +389,7 @@ export async function computeProductionPanchang({ at, location, timeZone = "", t
       },
       lunarMonth: {
         name: samvat.month,
-        adhik: false,
+        adhik: Boolean(samvat.adhik),
         kshaya: false
       },
       vikramSamvat: samvat

@@ -1856,10 +1856,20 @@ function updateStarChart(date, location, activeNakIndex) {
   resolveSkyLabelOverlaps();
 }
 
-function formatMonthName(state) {
-  const [month, anchor, festival] = gujaratiMonths[state.monthIndex];
-  const prefix = state.isAdhikMonth ? "Adhik " : "";
-  const note = state.isAdhikMonth ? "intercalary month" : festival;
+function vedicMonthForDate(date) {
+  const year = vedicYearForDate(date);
+  const { months } = getVedicYearMonths(year);
+  return months.find((month) => date >= month.start && date < month.nextStart) || months[0] || {
+    month: gujaratiMonths[0][0],
+    isAdhikMonth: false
+  };
+}
+
+function formatMonthName(date, state) {
+  const vedicMonth = vedicMonthForDate(date);
+  const [month, anchor, festival] = gujaratiMonths.find(([name]) => name === vedicMonth.month) || gujaratiMonths[state.monthIndex];
+  const prefix = vedicMonth.isAdhikMonth ? "Adhik " : "";
+  const note = vedicMonth.isAdhikMonth ? "intercalary month" : festival;
   return `${prefix}${month} / anchored near ${anchor} / ${note}`;
 }
 
@@ -1885,11 +1895,10 @@ function formatMonthDisplay(name, adhik = false) {
 }
 
 function formatVikramSamvat(date, state) {
-  const chaitraBoundary = new Date(date.getFullYear(), 2, 22);
-  const samvatYear = date >= chaitraBoundary ? date.getFullYear() + 57 : date.getFullYear() + 56;
-  const [month] = gujaratiMonths[state.monthIndex];
-  const monthName = `${state.isAdhikMonth ? "Adhik " : ""}${month}`;
-  return `VS ${samvatYear} / ${monthName} / ${state.paksha.split(" ")[0]} ${tithis[state.tithiIndex]}`;
+  const year = vedicYearForDate(date);
+  const vedicMonth = vedicMonthForDate(date);
+  const monthName = `${vedicMonth.isAdhikMonth ? "Adhik " : ""}${vedicMonth.month}`;
+  return `VS ${year.samvat} / ${monthName} / ${state.paksha.split(" ")[0]} ${tithis[state.tithiIndex]}`;
 }
 
 function drawMuhurta(date, location) {
@@ -2163,7 +2172,7 @@ function updateText(state, date, location) {
     setText("#nakshatraValue", `${nakshatras[state.nakIndex]} / ${nakshatraSanskrit[state.nakIndex]} / ${nakshatraCommon[state.nakIndex]}`);
     setText("#moonRashiValue", formatRashiName(state.moonRashiIndex));
     setText("#sunRashiValue", formatRashiName(state.sunRashiIndex));
-    setText("#monthValue", formatMonthName(state));
+    setText("#monthValue", formatMonthName(date, state));
     setText("#vikramSamvatValue", formatVikramSamvat(date, state));
   }
   setText("#latValue", formatCoordinate(location.lat, "lat"));

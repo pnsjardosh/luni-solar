@@ -38,3 +38,17 @@ test("tithi transition window surrounds requested time", async () => {
   assert.ok(start < at);
   assert.ok(end > at);
 });
+
+test("gujarati month follows adhik Jeth sequence in June 2026", async () => {
+  const result = await computeProductionPanchang({
+    at: new Date("2026-06-18T12:00:00.000Z"),
+    location: { lat: 23.1765, lon: 75.7885 },
+    timeZone: "Asia/Kolkata",
+    tradition: "gujarati-vikram"
+  });
+
+  assert.equal(result.panchang.vikramSamvat.year, 2082);
+  assert.equal(result.panchang.lunarMonth.name, "Jeth");
+  assert.equal(result.panchang.lunarMonth.adhik, false);
+  assert.match(result.panchang.vikramSamvat.label, /VS 2082 \/ Jeth \/ Shukla Chaturthi/);
+});
