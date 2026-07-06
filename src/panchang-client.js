@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from "./config/runtime-config.js";
+
 const cache = new Map();
 const MAX_CACHE_ENTRIES = 288;
 
@@ -12,7 +14,15 @@ export async function fetchProductionPanchang({ config, date, location, timeZone
   const key = cacheKey({ date, location, timeZone, tradition });
   if (cache.has(key)) return cache.get(key);
 
-  const base = config.apiBase || "";
+  const base = config.apiBase || getApiBaseUrl();
+  if (window.location.hostname.endsWith("github.io") && !base) {
+    return {
+      health: {
+        status: "unavailable",
+        message: "Panchang calculation service is unavailable on this deployment. Astronomical visualizations may still work locally in the browser."
+      }
+    };
+  }
   const url = new URL(`${base}/api/panchang`, window.location.origin);
   url.searchParams.set("lat", location.lat.toFixed(6));
   url.searchParams.set("lon", location.lon.toFixed(6));
@@ -26,7 +36,12 @@ export async function fetchProductionPanchang({ config, date, location, timeZone
       if (!response.ok) throw new Error(`Panchang API failed: ${response.status}`);
       return response.json();
     })
-    .catch(() => null);
+    .catch(() => ({
+      health: {
+        status: "unavailable",
+        message: "Panchang calculation service is unavailable on this deployment. Astronomical visualizations may still work locally in the browser."
+      }
+    }));
   if (cache.has(key)) cache.delete(key);
   cache.set(key, promise);
   while (cache.size > MAX_CACHE_ENTRIES) {

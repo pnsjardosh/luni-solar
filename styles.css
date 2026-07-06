@@ -146,6 +146,16 @@ body::before {
     0 0 24px rgba(255, 102, 125, 0.34);
 }
 
+.engine-status-beacon.unavailable .engine-status-core,
+.engine-status-beacon.degraded .engine-status-core {
+  color: #ff667d;
+  background: #ff91a1;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 12px rgba(255, 102, 125, 0.76),
+    0 0 24px rgba(255, 102, 125, 0.34);
+}
+
 .engine-status-label {
   position: absolute;
   width: 1px;
@@ -1072,6 +1082,7 @@ button:focus-visible,
 }
 
 .panchang-list > div,
+.calculation-method-grid article,
 .mini-orbits,
 .month-card,
 .muhurta-card,
@@ -1128,6 +1139,43 @@ dd {
 
 .mini-orbits strong {
   color: var(--gold);
+}
+
+.panchang-rule-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.calculation-method-panel {
+  margin-top: 16px;
+}
+
+.calculation-method-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.calculation-method-grid article {
+  min-height: 82px;
+  padding: 12px;
+}
+
+.calculation-method-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.calculation-method-grid strong {
+  display: block;
+  margin-top: 5px;
+  color: white;
+  font-size: 0.88rem;
+  line-height: 1.32;
 }
 
 .journey-panel,

@@ -63,6 +63,12 @@ node $scriptPath
 
 Open `http://127.0.0.1:4174`.
 
+The checked-in helper can also be used directly:
+
+```powershell
+node scripts/local-server.mjs
+```
+
 To check the API directly:
 
 ```text
@@ -71,15 +77,43 @@ http://127.0.0.1:4174/api/panchang?lat=23.1765&lon=75.7885&at=2026-05-10T14:11:0
 
 This endpoint uses the same `astronomy-engine` calculation path as the Vercel deployment, so local API output should match hosted behavior.
 
-## Production Panchang API
+## Panchang API
 
-The app includes a Vercel-compatible endpoint at `/api/panchang` for production-grade Panchang data.
+The app includes a Vercel-compatible endpoint at `/api/panchang` for modern astronomical Panchang approximations.
 
 ```text
 GET /api/panchang?lat=23.1765&lon=75.7885&at=2026-05-10T14:11:00.000Z&tz=Asia/Kolkata&tradition=gujarati-vikram
 ```
 
-The endpoint returns the full structured Panchang response using `astronomy-engine`, a pure JavaScript ephemeris library that runs on Vercel without native compilation.
+The endpoint returns:
+
+- `calculationMethod`: ephemeris, coordinate system, sidereal model, tradition, and accuracy labels.
+- `selectedTimePanchang`: the astronomical state at the selected instant.
+- `sunriseDayPanchang`: the traditional civil-day state immediately after local sunrise.
+- `muhurta.choghadiya`: daytime and nighttime Choghadiya segments when sunrise/sunset are available.
+- `calendarDiagnostics`: new-moon interval, solar ingresses, adhika/kshaya status, and Gujarati New Year rule diagnostics.
+
+Current limits are explicit in the response: the ephemeris uses Astronomy Engine and the sidereal conversion is an approximate Lahiri-style ayanamsha. Gujarati New Year/Diwali uses a rule-based Aaso Amavasya pradosha check followed by Kartak Shukla Pratipada, with diagnostics included because published regional panchang traditions can vary.
+
+## GitHub Pages API Base
+
+GitHub Pages cannot run `/api/panchang`. For Pages deployments, configure the hosted Vercel API base through either:
+
+```html
+<script>
+  window.LUNI_SOLAR_CONFIG = {
+    apiBaseUrl: "https://your-vercel-deployment.vercel.app"
+  };
+</script>
+```
+
+or:
+
+```html
+<meta name="luni-solar-api-base" content="https://your-vercel-deployment.vercel.app">
+```
+
+If no API base is configured on `github.io`, the UI shows a degraded health message and keeps browser-side astronomical visuals available.
 
 ## Project Shape
 
@@ -87,9 +121,25 @@ The endpoint returns the full structured Panchang response using `astronomy-engi
 - `styles.css` contains visual styling and animation.
 - `app.js` is the main runtime entrypoint.
 - `src/config.js` centralizes asset paths, playback speeds, and default location.
+- `src/config/runtime-config.js` resolves the optional hosted API base URL.
 - `src/url-state.js` owns query-string parsing and shareable URL updates.
+- `src/server/astronomy/*` contains ephemeris providers, angular math, and boundary solving.
+- `src/server/panchang/panchang-elements.js` contains pure Panchang element formulas.
+- `src/server/calendar/*` contains lunar-month, ingress, and Gujarati year rules.
+- `src/server/muhurta/choghadiya.js` contains Choghadiya calculations.
 - `assets/nakshatra-stars.js` contains the generated Stellarium/HYG nakshatra star subset.
 - `assets/*.jpg` contains local Earth and Sun imagery.
+
+## Validation Fixtures
+
+Reference fixtures live in `test/fixtures/reference-panchang.json`. Each fixture records:
+
+- source name and URL
+- retrieval date
+- expected tithi/nakshatra/month values
+- notes about likely discrepancy causes
+
+These tests intentionally validate named calendar elements rather than silently tuning transition minutes to one website. Differences can come from ayanamsha, ephemeris model, sunrise definition, coordinates, or local festival tradition.
 
 ## Shareable URL State
 

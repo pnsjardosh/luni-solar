@@ -481,7 +481,7 @@ function setText(selector, value) {
 
 function setEngineStatus(kind, message) {
   if (!engineStatusBeacon) return;
-  engineStatusBeacon.classList.remove("pending", "swiss", "production", "fallback");
+  engineStatusBeacon.classList.remove("pending", "swiss", "production", "fallback", "degraded", "unavailable");
   engineStatusBeacon.classList.add(kind);
   const label = message || "Panchang engine status";
   engineStatusBeacon.setAttribute("aria-label", label);
@@ -532,6 +532,18 @@ function locationCalendarParts(date, location) {
   const shifted = new Date(date.getTime() + localUtcOffsetMinutes(date, location) * 60000);
   const formatter = new Intl.DateTimeFormat("en-CA", { ...options, timeZone: "UTC" });
   return partsObject(formatter.formatToParts(shifted));
+}
+
+function setCalculationMethod(data, fallbackMessage = "") {
+  const method = data?.calculationMethod || {};
+  const health = data?.health || {};
+  setText("#methodEphemerisValue", method.ephemeris || "--");
+  setText("#methodCoordinateValue", method.coordinateSystem || "--");
+  setText("#methodSiderealValue", method.siderealModel || "Approximate Lahiri-style");
+  setText("#methodTraditionValue", method.calendarTradition || "Gujarati Vikram Samvat, amanta");
+  setText("#methodDailyAssignmentValue", method.dailyAssignment || "Tithi prevailing immediately after local sunrise");
+  setText("#methodAccuracyValue", method.accuracyStatus || "Modern astronomical approximation; festival rules may vary by regional tradition");
+  setText("#calculationHealthValue", health.message || fallbackMessage || "Calculation service status unknown");
 }
 
 function locationDayKey(date, location) {
@@ -1960,8 +1972,9 @@ function phaseNameFromAngle(angle) {
 }
 
 function stateFromProduction(data) {
-  const astronomy = data?.astronomy || data?.panchang?.astronomy;
-  const panchang = data?.panchang;
+  const selected = data?.selectedTimePanchang || data?.panchang;
+  const astronomy = data?.astronomy || selected?.astronomy || data?.panchang?.astronomy;
+  const panchang = selected || data?.panchang;
   if (!astronomy || !panchang) return null;
   const tithiIndex = Number.isFinite(astronomy.tithiIndex) ? astronomy.tithiIndex : (panchang.tithi?.index || 1) - 1;
   const nakIndex = Number.isFinite(astronomy.nakshatraIndex) ? astronomy.nakshatraIndex : (panchang.nakshatra?.index || 1) - 1;
@@ -2083,7 +2096,7 @@ async function drawGregorianMonth(date, location) {
       timeZone: resolvedLocationTimeZone(location)
     }).then((data) => {
       if (requestId !== monthCalendarRequest || !data?.panchang) return;
-      const daily = data.dailyPanchang || data.panchang;
+      const daily = data.sunriseDayPanchang || data.dailyPanchang || data.panchang;
       const astronomy = daily.astronomy || data.astronomy || {};
       const angle = Number.isFinite(astronomy.lunarAngle) ? astronomy.lunarAngle : 0;
       const phase = moonPhaseVisual(angle);
@@ -2318,15 +2331,19 @@ async function applyProductionPanchang(date, location) {
   });
   if (requestId !== panchangApiRequest) return;
 
-  if (!data?.panchang) {
+  if (!data?.panchang && !data?.selectedTimePanchang) {
     panchangCardMode = "local";
     setText("#timezoneValue", timezoneStatus(date, location));
-    setEngineStatus("fallback", "Fallback Panchang engine active");
+    setText("#sunriseTithiValue", "Service unavailable");
+    setCalculationMethod(data, "Panchang calculation service is unavailable on this deployment. Astronomical visualizations may still work locally in the browser.");
+    setEngineStatus(data?.health?.status === "unavailable" ? "unavailable" : "fallback", data?.health?.message || "Fallback Panchang engine active");
     return;
   }
 
   panchangCardMode = "production";
-  const { panchang, transitions, engine, time } = data;
+  const panchang = data.selectedTimePanchang || data.panchang;
+  const sunriseDay = data.sunriseDayPanchang || data.dailyPanchang;
+  const { engine } = data;
   const pakshaShort = panchang.paksha || panchang.tithi?.paksha || "";
   const productionState = stateFromProduction(data);
   if (productionState) {
@@ -2340,18 +2357,21 @@ async function applyProductionPanchang(date, location) {
   }
 
   setText("#tithiValue", `${pakshaShort} ${panchang.tithi?.name || "--"}`);
+  setText("#sunriseTithiValue", `${sunriseDay?.paksha || sunriseDay?.tithi?.paksha || "--"} ${sunriseDay?.tithi?.name || "--"}`);
   setText("#nakshatraValue", formatNakshatraDisplay(panchang.nakshatra?.name || "--"));
   setText("#moonRashiValue", formatRashiNameFromVedic(panchang.rashi?.moon || "--"));
   setText("#sunRashiValue", formatRashiNameFromVedic(panchang.rashi?.sun || "--"));
-  setText("#monthValue", formatMonthDisplay(panchang.lunarMonth?.name || "--", Boolean(panchang.lunarMonth?.adhik)));
+  const civilMonth = sunriseDay?.civilGujaratiMonth || panchang.civilGujaratiMonth || panchang.lunarMonth;
+  setText("#monthValue", formatMonthDisplay(civilMonth?.name || "--", Boolean(civilMonth?.adhik)));
   setText("#vikramSamvatValue", `${panchang.vikramSamvat?.label || "--"}`);
   setText("#timezoneValue", timezoneStatus(date, location));
+  setCalculationMethod(data);
   if (engine?.name === "swiss-ephemeris") {
     setEngineStatus("swiss", "Swiss Ephemeris active");
-  } else if (engine?.precision === "production") {
-    setEngineStatus("production", `${engine?.name || "Production"} active`);
+  } else if (data.health?.status === "available") {
+    setEngineStatus("production", `${engine?.name || data.calculationMethod?.ephemeris || "Astronomy Engine"} active`);
   } else {
-    setEngineStatus("fallback", `${engine?.name || "Fallback"} active`);
+    setEngineStatus("degraded", data.health?.message || `${engine?.name || "Calculation"} degraded`);
   }
 }
 

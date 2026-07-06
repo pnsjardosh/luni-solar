@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="luni-solar-api-base" content="" />
     <title>Vedic Luni Solar Calendar</title>
     <link rel="icon" href="./assets/site-logo.png?v=20260618-1" type="image/png" />
     <link rel="stylesheet" href="./styles.css?v=20260615-galactic-pole-stars-1" />
@@ -130,8 +131,12 @@
               <dd id="vikramSamvatValue">--</dd>
             </div>
             <div class="reading-card">
-              <dt>Tithi</dt>
+              <dt>Tithi / At Selected Time</dt>
               <dd id="tithiValue">--</dd>
+            </div>
+            <div class="reading-card">
+              <dt>Tithi / At Local Sunrise</dt>
+              <dd id="sunriseTithiValue">--</dd>
             </div>
             <div class="reading-card paksha-card">
               <dt>Paksha</dt>
@@ -188,7 +193,46 @@
               <strong id="moonRashiFocus">--</strong>
             </div>
           </div>
+          <p class="panchang-rule-note" id="panchangRuleNote">
+            Traditional civil-day observance usually follows the tithi prevailing at local sunrise. The selected-time view shows the astronomical state at the chosen instant.
+          </p>
         </aside>
+      </section>
+
+      <section class="calculation-method-panel" aria-label="Calculation method">
+        <div class="panel-title">
+          <div>
+            <p class="eyebrow">Calculation Method</p>
+            <h2>How This Reading Is Computed</h2>
+          </div>
+          <div class="accuracy-note" id="calculationHealthValue">Checking calculation service</div>
+        </div>
+        <div class="calculation-method-grid">
+          <article>
+            <span>Ephemeris</span>
+            <strong id="methodEphemerisValue">--</strong>
+          </article>
+          <article>
+            <span>Coordinate System</span>
+            <strong id="methodCoordinateValue">--</strong>
+          </article>
+          <article>
+            <span>Sidereal Conversion</span>
+            <strong id="methodSiderealValue">--</strong>
+          </article>
+          <article>
+            <span>Calendar Tradition</span>
+            <strong id="methodTraditionValue">--</strong>
+          </article>
+          <article>
+            <span>Daily Assignment</span>
+            <strong id="methodDailyAssignmentValue">--</strong>
+          </article>
+          <article>
+            <span>Accuracy Status</span>
+            <strong id="methodAccuracyValue">--</strong>
+          </article>
+        </div>
       </section>
 
       <section class="muhurta-panel" aria-label="Muhurta and chaughadia">
@@ -296,7 +340,7 @@
           <article class="solar-card">
             <span>Obliquity / Aksha Jhukav</span>
             <strong id="obliquityValue">--</strong>
-            <p>Earth's axial tilt drives solstices, seasons, Uttarayana and Dakshinayana.</p>
+            <p>Earth's axial tilt produces the annual north-south motion of solar declination, the solstices, and the physical basis of Uttarayana and Dakshinayana. Sidereal Makara and Karka sankrantis occur later than tropical solstices because of ayanamsha.</p>
           </article>
           <article class="solar-card">
             <span>Eccentricity</span>
@@ -321,12 +365,12 @@
           <article class="solar-card deep-time">
             <span>Deep-Time Eccentricity</span>
             <strong id="deepEccentricityValue">--</strong>
-            <p>Long-period orbital shape estimate, useful for climate-cycle visualization.</p>
+            <p>Educational approximation: long-period orbital shape estimate for climate-cycle visualization.</p>
           </article>
           <article class="solar-card deep-time">
             <span>Precession Phase</span>
             <strong id="deepPrecessionValue">--</strong>
-            <p>Approximate axial-precession phase over a 25,700-year cycle.</p>
+            <p>Educational approximation: axial-precession phase over a 25,700-year cycle.</p>
           </article>
           <article class="solar-card deep-time">
             <span>Hemisphere Tilt</span>
@@ -379,7 +423,7 @@
           </article>
         </div>
         <p class="solar-reference-note">
-          Main date/time controls drive daily Earth rotation and daylight. Solar Geometry playback drives deep-time Milankovitch cycles for obliquity, eccentricity and precession.
+          Main date/time controls drive daily Earth rotation and daylight. Solar Geometry playback drives educational deep-time Milankovitch-cycle approximations for obliquity, eccentricity and precession. Deep-time values are simplified visual models and are not intended for scientific reconstruction or navigation.
         </p>
       </section>
 

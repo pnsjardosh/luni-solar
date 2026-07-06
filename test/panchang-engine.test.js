@@ -11,10 +11,13 @@ test("production panchang response has required sections", async () => {
   });
 
   assert.equal(result.time.timezone, "Asia/Kolkata");
-  assert.equal(result.engine.ayanamsha, "Lahiri");
+  assert.equal(result.engine.ayanamsha, "Approximate Lahiri-style");
   assert.equal(result.engine.tradition, "gujarati-vikram");
-  assert.equal(result.engine.precision, "production");
-  assert.equal(result.engine.name, "astronomy-engine");
+  assert.equal(result.engine.precision, "modern-calendar approximation");
+  assert.equal(result.engine.name, "Astronomy Engine");
+  assert.equal(result.calculationMethod.siderealModel, "Approximate Lahiri-style");
+  assert.ok(result.selectedTimePanchang.tithi.name);
+  assert.ok(result.sunriseDayPanchang.tithi.name);
   assert.ok(result.panchang.tithi.index >= 1 && result.panchang.tithi.index <= 30);
   assert.ok(result.panchang.nakshatra.index >= 1 && result.panchang.nakshatra.index <= 27);
   assert.ok(result.panchang.yoga.index >= 1 && result.panchang.yoga.index <= 27);
@@ -80,4 +83,17 @@ test("local midnight is formatted as 00 hour", async () => {
   });
 
   assert.match(result.time.local, /T00:00:00$/);
+});
+
+test("high latitude sunrise gaps do not throw", async () => {
+  const result = await computeProductionPanchang({
+    at: new Date("2026-06-21T12:00:00.000Z"),
+    location: { lat: 78.2232, lon: 15.6469 },
+    timeZone: "Arctic/Longyearbyen",
+    tradition: "gujarati-vikram"
+  });
+
+  assert.equal(result.health.status, "available");
+  assert.ok("sunrise" in result.muhurta);
+  assert.ok("sunset" in result.muhurta);
 });

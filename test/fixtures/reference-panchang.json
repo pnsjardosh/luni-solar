@@ -1,0 +1,67 @@
+[
+  {
+    "id": "prokerala-2026-06-18-india",
+    "date": "2026-06-18T12:00:00.000Z",
+    "location": {
+      "name": "India reference day",
+      "lat": 23.1765,
+      "lon": 75.7885
+    },
+    "timezone": "Asia/Kolkata",
+    "expected": {
+      "sunriseDay": {
+        "tithi": "Chaturthi",
+        "nakshatra": "Pushya",
+        "lunarMonth": "Jeth",
+        "adhik": false
+      },
+      "selectedTime": {
+        "tithi": "Chaturthi",
+        "nakshatra": "Ashlesha"
+      }
+    },
+    "source": {
+      "name": "Prokerala Panchang, June 18 2026",
+      "url": "https://www.prokerala.com/astrology/panchang/2026-june-18.html",
+      "retrieved": "2026-07-05",
+      "notes": "Search result excerpt reports Sukla Paksha Chaturthi and Pushya-to-Ashlesha transition. Exact city defaults can differ, so this fixture validates names rather than minute-level transition times."
+    },
+    "discrepancyNotes": [
+      "Published panchang sites may use a different location, ayanamsha, sunrise definition, or regional month naming.",
+      "This app uses Astronomy Engine with an approximate Lahiri-style sidereal conversion."
+    ]
+  },
+  {
+    "id": "drik-2026-07-06-ujjain-home-snippet",
+    "date": "2026-07-06T03:30:00.000Z",
+    "location": {
+      "name": "Ujjain, India",
+      "lat": 23.1765,
+      "lon": 75.7885
+    },
+    "timezone": "Asia/Kolkata",
+    "expected": {
+      "sunriseDay": {
+        "tithi": "Shashthi",
+        "nakshatra": "Purva Bhadrapada",
+        "lunarMonth": "Jeth",
+        "adhik": false
+      },
+      "selectedTime": {
+        "tithi": "Shashthi",
+        "nakshatra": "Purva Bhadrapada"
+      }
+    },
+    "source": {
+      "name": "Drik Panchang public homepage/search snippet for July 6 2026",
+      "url": "https://www.drikpanchang.com/",
+      "retrieved": "2026-07-05",
+      "notes": "Search result excerpt reports Shashthi, Purva Bhadrapada, Amanta Month Jyeshtha, sunrise, sunset, yoga, karana, and signs."
+    },
+    "discrepancyNotes": [
+      "The snippet is a public search excerpt rather than a full archived fixture page.",
+      "Minute-level transition validation should be added from a published panchang page or PDF before calling this authoritative."
+    ]
+  }
+]
+
