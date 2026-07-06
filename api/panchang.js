@@ -29,6 +29,7 @@ export default async function handler(request, response) {
     const lon = Number.parseFloat(url.searchParams.get("lon"));
     const at = new Date(url.searchParams.get("at") || Date.now());
     const tz = url.searchParams.get("tz") || "";
+    const offset = Number.parseFloat(url.searchParams.get("offset"));
     const tradition = url.searchParams.get("tradition") || "gujarati-vikram";
 
     if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
@@ -48,6 +49,7 @@ export default async function handler(request, response) {
       at,
       location: { lat, lon },
       timeZone: tz,
+      utcOffsetMinutes: Number.isFinite(offset) ? offset : null,
       tradition
     });
     sendJson(response, 200, result);

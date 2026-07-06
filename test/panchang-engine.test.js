@@ -51,4 +51,33 @@ test("gujarati month follows adhik Jeth sequence in June 2026", async () => {
   assert.equal(result.panchang.lunarMonth.name, "Jeth");
   assert.equal(result.panchang.lunarMonth.adhik, false);
   assert.match(result.panchang.vikramSamvat.label, /VS 2082 \/ Jeth \/ Shukla Chaturthi/);
+  assert.ok(result.transitions.month.start);
+  assert.ok(result.transitions.month.end);
+  assert.equal(result.dailyPanchang.tithi.name, "Chaturthi");
+  assert.equal(result.dailyPanchang.nakshatra.name, "Pushya");
+});
+
+test("fixed timezone offset fallback preserves Gujarati local date", async () => {
+  const result = await computeProductionPanchang({
+    at: new Date("2026-06-18T12:00:00.000Z"),
+    location: { lat: 23.1765, lon: 75.7885 },
+    timeZone: "",
+    utcOffsetMinutes: 330,
+    tradition: "gujarati-vikram"
+  });
+
+  assert.equal(result.time.timezone, "UTC+5.5");
+  assert.equal(result.panchang.vikramSamvat.year, 2082);
+  assert.equal(result.panchang.lunarMonth.name, "Jeth");
+});
+
+test("local midnight is formatted as 00 hour", async () => {
+  const result = await computeProductionPanchang({
+    at: new Date("2026-07-05T18:30:00.000Z"),
+    location: { lat: 23.1765, lon: 75.7885 },
+    timeZone: "Asia/Kolkata",
+    tradition: "gujarati-vikram"
+  });
+
+  assert.match(result.time.local, /T00:00:00$/);
 });

@@ -150,13 +150,13 @@ function findNextNewMoonAfter(date) {
   return new Date(date.getTime() + 29.530588853 * 86400000);
 }
 
-function localCivilDateUtc(date, timeZone, addDays = 0) {
-  const parts = timeParts(date, timeZone);
+function localCivilDateUtc(date, timeZone, addDays = 0, utcOffsetMinutes = null) {
+  const parts = timeParts(date, timeZone, utcOffsetMinutes);
   return new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day) + addDays));
 }
 
-function dayAfterNewMoon(newMoon, timeZone) {
-  return localCivilDateUtc(newMoon, timeZone, 1);
+function dayAfterNewMoon(newMoon, timeZone, utcOffsetMinutes = null) {
+  return localCivilDateUtc(newMoon, timeZone, 1, utcOffsetMinutes);
 }
 
 function findDiwaliNewMoon(gregorianYear) {
@@ -176,39 +176,45 @@ function findDiwaliNewMoon(gregorianYear) {
   return best || findNextNewMoonAfter(searchStart);
 }
 
-function findBestuVaras(gregorianYear, timeZone) {
-  return dayAfterNewMoon(findDiwaliNewMoon(gregorianYear), timeZone);
+function findBestuVaras(gregorianYear, timeZone, utcOffsetMinutes = null) {
+  return dayAfterNewMoon(findDiwaliNewMoon(gregorianYear), timeZone, utcOffsetMinutes);
 }
 
-function gujaratiYearForDate(date, timeZone) {
-  const localDate = localCivilDateUtc(date, timeZone);
+function gujaratiYearForDate(date, timeZone, utcOffsetMinutes = null) {
+  const localDate = localCivilDateUtc(date, timeZone, 0, utcOffsetMinutes);
   const year = localDate.getUTCFullYear();
-  const thisYearStart = findBestuVaras(year, timeZone);
-  const start = localDate >= thisYearStart ? thisYearStart : findBestuVaras(year - 1, timeZone);
-  const nextStart = findBestuVaras(start.getUTCFullYear() + 1, timeZone);
+  const thisYearStart = findBestuVaras(year, timeZone, utcOffsetMinutes);
+  const start = localDate >= thisYearStart ? thisYearStart : findBestuVaras(year - 1, timeZone, utcOffsetMinutes);
+  const nextStart = findBestuVaras(start.getUTCFullYear() + 1, timeZone, utcOffsetMinutes);
   return { start, nextStart, samvat: start.getUTCFullYear() + 57, localDate };
 }
 
-function gujaratiMonthForDate(date, timeZone) {
-  const year = gujaratiYearForDate(date, timeZone);
+function gujaratiMonthForDate(date, timeZone, utcOffsetMinutes = null) {
+  const year = gujaratiYearForDate(date, timeZone, utcOffsetMinutes);
   let monthStart = new Date(year.start);
   let monthSequenceIndex = 0;
 
   for (let index = 0; monthStart < year.nextStart && index < 14; index += 1) {
     const nextNewMoon = findNextNewMoonAfter(new Date(monthStart.getTime() + 18 * 86400000));
-    const nextStart = dayAfterNewMoon(nextNewMoon, timeZone);
+    const nextStart = dayAfterNewMoon(nextNewMoon, timeZone, utcOffsetMinutes);
     const boundedNextStart = nextStart > year.nextStart ? year.nextStart : nextStart;
     const sample = new Date(monthStart.getTime() + 6.5 * 86400000);
     const adhik = isAdhikMonth(sample);
     const name = MONTHS[monthSequenceIndex] || MONTHS[MONTHS.length - 1];
     if (year.localDate >= monthStart && year.localDate < boundedNextStart) {
-      return { name, adhik, year: year.samvat };
+      return {
+        name,
+        adhik,
+        year: year.samvat,
+        start: new Date(monthStart),
+        end: new Date(boundedNextStart)
+      };
     }
     monthStart = boundedNextStart;
     if (!adhik) monthSequenceIndex = Math.min(monthSequenceIndex + 1, MONTHS.length - 1);
   }
 
-  return { name: MONTHS[0], adhik: false, year: year.samvat };
+  return { name: MONTHS[0], adhik: false, year: year.samvat, start: year.start, end: year.nextStart };
 }
 
 function karanaForAngle(angle) {
@@ -260,7 +266,19 @@ function boundaryIndex(date, kind) {
   return state.tithiIndex;
 }
 
-function timeParts(date, timeZone) {
+function timeParts(date, timeZone, utcOffsetMinutes = null) {
+  if (!timeZone && Number.isFinite(utcOffsetMinutes)) {
+    const shifted = new Date(date.getTime() + utcOffsetMinutes * 60000);
+    const pad = (value) => String(value).padStart(2, "0");
+    return {
+      year: String(shifted.getUTCFullYear()),
+      month: pad(shifted.getUTCMonth() + 1),
+      day: pad(shifted.getUTCDate()),
+      hour: pad(shifted.getUTCHours()),
+      minute: pad(shifted.getUTCMinutes()),
+      second: pad(shifted.getUTCSeconds())
+    };
+  }
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: timeZone || "UTC",
     year: "numeric",
@@ -269,18 +287,20 @@ function timeParts(date, timeZone) {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    hour12: false
+    hourCycle: "h23"
   });
-  return Object.fromEntries(formatter.formatToParts(date).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  const values = Object.fromEntries(formatter.formatToParts(date).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  if (values.hour === "24") values.hour = "00";
+  return values;
 }
 
-function formatIsoLocal(date, timeZone) {
-  const parts = timeParts(date, timeZone);
+function formatIsoLocal(date, timeZone, utcOffsetMinutes = null) {
+  const parts = timeParts(date, timeZone, utcOffsetMinutes);
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`;
 }
 
-function dateKey(date, timeZone) {
-  const parts = timeParts(date, timeZone);
+function dateKey(date, timeZone, utcOffsetMinutes = null) {
+  const parts = timeParts(date, timeZone, utcOffsetMinutes);
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
@@ -289,16 +309,19 @@ function searchRiseSetIso(body, observer, direction, date, limitDays) {
   return event?.date instanceof Date ? event.date : null;
 }
 
-function chooseLocalEvent(date, timeZone, ...candidates) {
-  const targetKey = dateKey(date, timeZone);
-  return candidates.find((candidate) => candidate && dateKey(candidate, timeZone) === targetKey) || null;
+function chooseLocalEvent(date, timeZone, utcOffsetMinutes, ...candidates) {
+  const targetKey = dateKey(date, timeZone, utcOffsetMinutes);
+  return candidates.find((candidate) => candidate && dateKey(candidate, timeZone, utcOffsetMinutes) === targetKey) || null;
 }
 
 function timeRange(start, end) {
   return start && end ? { start: start.toISOString(), end: end.toISOString() } : null;
 }
 
-function weekdayIndex(date, timeZone) {
+function weekdayIndex(date, timeZone, utcOffsetMinutes = null) {
+  if (!timeZone && Number.isFinite(utcOffsetMinutes)) {
+    return new Date(date.getTime() + utcOffsetMinutes * 60000).getUTCDay();
+  }
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: timeZone || "UTC",
     weekday: "short"
@@ -315,21 +338,23 @@ function segmentRange(start, end, segmentIndex) {
   return timeRange(segStart, segEnd);
 }
 
-function dayMuhurtas(date, location, timeZone) {
+function dayMuhurtas(date, location, timeZone, utcOffsetMinutes = null) {
   const observer = new Observer(location.lat, location.lon, 0);
   const sunrise = chooseLocalEvent(
     date,
     timeZone,
+    utcOffsetMinutes,
     searchRiseSetIso(Body.Sun, observer, +1, date, -2),
     searchRiseSetIso(Body.Sun, observer, +1, date, 2)
   );
   const sunset = chooseLocalEvent(
     date,
     timeZone,
+    utcOffsetMinutes,
     searchRiseSetIso(Body.Sun, observer, -1, date, -2),
     searchRiseSetIso(Body.Sun, observer, -1, date, 2)
   );
-  const weekday = weekdayIndex(date, timeZone);
+  const weekday = weekdayIndex(date, timeZone, utcOffsetMinutes);
   const rahuSegments = [7, 1, 6, 4, 5, 3, 2];
   const yamagandaSegments = [4, 3, 2, 1, 0, 6, 5];
   const gulikaSegments = [6, 5, 4, 3, 2, 1, 0];
@@ -344,8 +369,8 @@ function dayMuhurtas(date, location, timeZone) {
   };
 }
 
-function vikramSamvat(date, state, timeZone) {
-  const monthInfo = gujaratiMonthForDate(date, timeZone);
+function vikramSamvat(date, state, timeZone, utcOffsetMinutes = null) {
+  const monthInfo = gujaratiMonthForDate(date, timeZone, utcOffsetMinutes);
   const month = `${monthInfo.adhik ? "Adhik " : ""}${monthInfo.name}`;
   return {
     year: monthInfo.year,
@@ -355,7 +380,43 @@ function vikramSamvat(date, state, timeZone) {
   };
 }
 
-export async function computeProductionPanchang({ at, location, timeZone = "", tradition = "gujarati-vikram" }) {
+function panchangSummaryAt(date, timeZone, utcOffsetMinutes = null) {
+  const state = panchangStateAt(date);
+  const samvat = vikramSamvat(date, state, timeZone, utcOffsetMinutes);
+  return {
+    at: date.toISOString(),
+    tithi: { index: state.tithiIndex + 1, name: TITHIS[state.tithiIndex], paksha: state.paksha },
+    paksha: state.paksha,
+    nakshatra: { index: state.nakshatraIndex + 1, name: NAKSHATRAS[state.nakshatraIndex] },
+    yoga: { index: state.yogaIndex + 1, name: YOGAS[state.yogaIndex] },
+    karana: { index: state.karanaIndex + 1, name: karanaName(state.karanaIndex) },
+    rashi: {
+      sun: RASHIS[state.sunRashiIndex],
+      moon: RASHIS[state.moonRashiIndex]
+    },
+    lunarMonth: {
+      name: samvat.month,
+      adhik: Boolean(samvat.adhik),
+      kshaya: false
+    },
+    vikramSamvat: samvat,
+    astronomy: {
+      source: state.source,
+      sunLongitude: state.sun,
+      moonLongitude: state.moon,
+      lunarAngle: state.angle,
+      tithiIndex: state.tithiIndex,
+      nakshatraIndex: state.nakshatraIndex,
+      yogaIndex: state.yogaIndex,
+      karanaIndex: state.karanaIndex,
+      sunRashiIndex: state.sunRashiIndex,
+      moonRashiIndex: state.moonRashiIndex
+    }
+  };
+}
+
+export async function computeProductionPanchang({ at, location, timeZone = "", utcOffsetMinutes = null, tradition = "gujarati-vikram" }) {
+  const offsetMinutes = Number.isFinite(utcOffsetMinutes) ? utcOffsetMinutes : null;
   const state = panchangStateAt(at);
   const [tithiStart, tithiEnd, nakshatraStart, nakshatraEnd, yogaStart, yogaEnd, karanaStart, karanaEnd] = await Promise.all([
     findBoundary(at, "tithi", -1, state.tithiIndex),
@@ -367,14 +428,17 @@ export async function computeProductionPanchang({ at, location, timeZone = "", t
     findBoundary(at, "karana", -1, state.karanaIndex),
     findBoundary(at, "karana", 1, state.karanaIndex)
   ]);
-  const samvat = vikramSamvat(at, state, timeZone);
-  const muhurta = dayMuhurtas(at, location, timeZone);
+  const samvat = vikramSamvat(at, state, timeZone, offsetMinutes);
+  const monthInfo = gujaratiMonthForDate(at, timeZone, offsetMinutes);
+  const muhurta = dayMuhurtas(at, location, timeZone, offsetMinutes);
+  const sunriseDate = muhurta.sunrise ? new Date(new Date(muhurta.sunrise).getTime() + 60000) : at;
+  const dailyPanchang = panchangSummaryAt(sunriseDate, timeZone, offsetMinutes);
 
   return {
     time: {
       requestedUtc: at.toISOString(),
-      local: formatIsoLocal(at, timeZone),
-      timezone: timeZone || "UTC",
+      local: formatIsoLocal(at, timeZone, offsetMinutes),
+      timezone: timeZone || (Number.isFinite(offsetMinutes) ? `UTC${offsetMinutes >= 0 ? "+" : ""}${(offsetMinutes / 60).toFixed(offsetMinutes % 60 === 0 ? 0 : 1)}` : "UTC"),
       location
     },
     panchang: {
@@ -394,12 +458,28 @@ export async function computeProductionPanchang({ at, location, timeZone = "", t
       },
       vikramSamvat: samvat
     },
+    astronomy: {
+      source: state.source,
+      sunLongitude: state.sun,
+      moonLongitude: state.moon,
+      lunarAngle: state.angle,
+      tithiIndex: state.tithiIndex,
+      nakshatraIndex: state.nakshatraIndex,
+      yogaIndex: state.yogaIndex,
+      karanaIndex: state.karanaIndex,
+      sunRashiIndex: state.sunRashiIndex,
+      moonRashiIndex: state.moonRashiIndex
+    },
+    dailyPanchang,
     transitions: {
       tithi: { start: tithiStart?.toISOString() || null, end: tithiEnd?.toISOString() || null },
       nakshatra: { start: nakshatraStart?.toISOString() || null, end: nakshatraEnd?.toISOString() || null },
       yoga: { start: yogaStart?.toISOString() || null, end: yogaEnd?.toISOString() || null },
       karana: { start: karanaStart?.toISOString() || null, end: karanaEnd?.toISOString() || null },
-      month: { start: null, end: null }
+      month: {
+        start: monthInfo.start?.toISOString() || null,
+        end: monthInfo.end?.toISOString() || null
+      }
     },
     muhurta,
     engine: {

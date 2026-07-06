@@ -705,7 +705,13 @@ button:focus-visible,
   object-position: center;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 50%;
-  background-color: transparent;
+  background-color: #1f2732;
+  background-image:
+    var(--moon-image, none),
+    linear-gradient(90deg, var(--moon-dark, #44505f) 0 var(--shadow-stop, 50%), var(--moon-lit, #f4f1e7) var(--shadow-stop, 50%) 100%);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
   box-shadow: 0 0 18px rgba(255, 255, 255, 0.26);
 }
 

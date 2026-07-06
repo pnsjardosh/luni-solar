@@ -19,6 +19,7 @@ export async function fetchProductionPanchang({ config, date, location, timeZone
   url.searchParams.set("at", date.toISOString());
   url.searchParams.set("tradition", tradition);
   if (timeZone) url.searchParams.set("tz", timeZone);
+  else url.searchParams.set("offset", String(Math.round(location.lon * 4)));
 
   const promise = fetch(url.toString(), { headers: { Accept: "application/json" } })
     .then((response) => {

@@ -230,10 +230,12 @@ let lastVedicYearRenderKey = "";
 let lastPanchangApplyKey = "";
 let lastUrlStateSync = 0;
 let panchangCardMode = "local";
+let monthCalendarRequest = 0;
 const MAX_MOON_FRAME_CACHE = 96;
 const MAX_LOCATION_TIMEZONE_CACHE = 64;
 const MAX_VEDIC_YEAR_CACHE = 24;
 const URL_STATE_SYNC_INTERVAL_MS = 1200;
+const TRANSPARENT_IMAGE_SRC = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3C/svg%3E";
 const renderVisibility = new Map();
 const vedicYearMonthCache = new Map();
 
@@ -306,18 +308,85 @@ function setBoundedMapEntry(map, key, value, maxEntries) {
   }
 }
 
+function seededDefaultTimeZone(location) {
+  const defaults = APP_CONFIG.defaults || {};
+  if (!defaults.timeZone) return "";
+  const sameLat = Math.abs(Number(location.lat) - Number(defaults.lat)) < 0.01;
+  const sameLon = Math.abs(Number(location.lon) - Number(defaults.lon)) < 0.01;
+  return sameLat && sameLon ? defaults.timeZone : "";
+}
+
+function estimatedUtcOffsetMinutes(location) {
+  if (Number.isFinite(APP_CONFIG.time?.utcOffsetMinutes)) return APP_CONFIG.time.utcOffsetMinutes;
+  return Math.round(Number(location.lon || 0) * 4);
+}
+
+function partsObject(parts) {
+  const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  if (values.hour === "24") values.hour = "00";
+  return values;
+}
+
+function locationDateTimeParts(date, location) {
+  const key = locationCacheKey(location);
+  const locationTimeZone = locationTimezoneCache.get(key) || seededDefaultTimeZone(location);
+  const formatterOptions = {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  };
+  if (locationTimeZone) {
+    const formatter = new Intl.DateTimeFormat("en-CA", { ...formatterOptions, timeZone: locationTimeZone });
+    return partsObject(formatter.formatToParts(date));
+  }
+  const shifted = new Date(date.getTime() + estimatedUtcOffsetMinutes(location) * 60000);
+  const formatter = new Intl.DateTimeFormat("en-CA", { ...formatterOptions, timeZone: "UTC" });
+  return partsObject(formatter.formatToParts(shifted));
+}
+
+function dateFromLocationParts(dateValue, timeValue, location) {
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateValue || "");
+  if (!dateMatch) return new Date();
+  const timeMatch = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(timeValue || "00:00:00");
+  const [, yearText, monthText, dayText] = dateMatch;
+  const hour = Number(timeMatch?.[1] || 0);
+  const minute = Number(timeMatch?.[2] || 0);
+  const second = Number(timeMatch?.[3] || 0);
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const localAsUtc = Date.UTC(year, month - 1, day, hour, minute, second);
+  const locationTimeZone = locationTimezoneCache.get(locationCacheKey(location)) || seededDefaultTimeZone(location);
+
+  if (locationTimeZone) {
+    let utc = localAsUtc;
+    for (let i = 0; i < 3; i += 1) {
+      const offset = offsetMinutesForTimeZone(new Date(utc), locationTimeZone);
+      utc = localAsUtc - offset * 60000;
+    }
+    return new Date(utc);
+  }
+
+  return new Date(localAsUtc - estimatedUtcOffsetMinutes(location) * 60000);
+}
+
 function selectedDateTime() {
   if (dateInput?.value) {
     const timeValue = timeInput?.value || "00:00:00";
-    const composed = new Date(`${dateInput.value}T${timeValue}`);
+    const composed = dateFromLocationParts(dateInput.value, timeValue, currentLocation());
     if (!Number.isNaN(composed.getTime())) return composed;
   }
   return new Date();
 }
 
-function syncDateTimeInputs(date) {
-  if (dateInput) dateInput.value = toDateInputValue(date);
-  if (timeInput) timeInput.value = toTimeInputValue(date);
+function syncDateTimeInputs(date, location = currentLocation()) {
+  const parts = locationDateTimeParts(date, location);
+  if (dateInput) dateInput.value = `${parts.year}-${parts.month}-${parts.day}`;
+  if (timeInput) timeInput.value = `${parts.hour}:${parts.minute}:${parts.second}`;
 }
 
 function wrap(value, max = 360) {
@@ -422,7 +491,7 @@ function setEngineStatus(kind, message) {
 
 function formatLocationClock(date, location) {
   const key = locationCacheKey(location);
-  const locationTimeZone = locationTimezoneCache.get(key);
+  const locationTimeZone = locationTimezoneCache.get(key) || seededDefaultTimeZone(location);
   if (locationTimeZone) {
     return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZone: locationTimeZone });
   }
@@ -432,7 +501,7 @@ function formatLocationClock(date, location) {
 
 function formatLocationDateTime(date, location) {
   const key = locationCacheKey(location);
-  const locationTimeZone = locationTimezoneCache.get(key);
+  const locationTimeZone = locationTimezoneCache.get(key) || seededDefaultTimeZone(location);
   if (locationTimeZone) {
     return date.toLocaleString([], {
       month: "short",
@@ -454,15 +523,15 @@ function formatLocationDateTime(date, location) {
 
 function locationCalendarParts(date, location) {
   const key = locationCacheKey(location);
-  const locationTimeZone = locationTimezoneCache.get(key);
+  const locationTimeZone = locationTimezoneCache.get(key) || seededDefaultTimeZone(location);
   const options = { year: "numeric", month: "2-digit", day: "2-digit" };
   if (locationTimeZone) {
     const formatter = new Intl.DateTimeFormat("en-CA", { ...options, timeZone: locationTimeZone });
-    return Object.fromEntries(formatter.formatToParts(date).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+    return partsObject(formatter.formatToParts(date));
   }
   const shifted = new Date(date.getTime() + localUtcOffsetMinutes(date, location) * 60000);
   const formatter = new Intl.DateTimeFormat("en-CA", { ...options, timeZone: "UTC" });
-  return Object.fromEntries(formatter.formatToParts(shifted).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  return partsObject(formatter.formatToParts(shifted));
 }
 
 function locationDayKey(date, location) {
@@ -488,25 +557,24 @@ function formatGregorianMonthTitle(year, month) {
   return new Intl.DateTimeFormat([], { month: "long", year: "numeric" }).format(new Date(year, month, 1));
 }
 
+function formatCivilDateValue(year, monthIndex, day) {
+  return `${String(year).padStart(4, "0")}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 function timezoneStatus(date, location) {
   const key = locationCacheKey(location);
-  const locationTimeZone = locationTimezoneCache.get(key);
+  const locationTimeZone = locationTimezoneCache.get(key) || seededDefaultTimeZone(location);
   if (locationTimeZone) {
     const profile = detectTimeProfileForZone(date, locationTimeZone);
     return `${locationTimeZone} / UTC${profile.activeOffset >= 0 ? "+" : ""}${(profile.activeOffset / 60).toFixed(profile.activeOffset % 60 === 0 ? 0 : 1)}${profile.dstActive ? " / DST" : ""}`;
   }
-  if (APP_CONFIG.time?.autoDetectFromBrowser) {
-    const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Browser";
-    const profile = detectBrowserTimeProfile(date);
-    return `${browserZone} / UTC${profile.activeOffset >= 0 ? "+" : ""}${(profile.activeOffset / 60).toFixed(profile.activeOffset % 60 === 0 ? 0 : 1)}${profile.dstActive ? " / DST" : ""}`;
-  }
-  const approx = Math.round(location.lon * 4);
+  const approx = estimatedUtcOffsetMinutes(location);
   return `Estimated timezone / UTC${approx >= 0 ? "+" : ""}${(approx / 60).toFixed(approx % 60 === 0 ? 0 : 1)}`;
 }
 
 function resolvedLocationTimeZone(location) {
   const key = locationCacheKey(location);
-  return locationTimezoneCache.get(key) || Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  return locationTimezoneCache.get(key) || seededDefaultTimeZone(location) || "";
 }
 
 function localSiderealTime(date, lon) {
@@ -943,7 +1011,7 @@ function getTimeZoneFormatter(timeZone) {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    hour12: false
+    hourCycle: "h23"
   });
   timeZoneFormatterCache.set(timeZone, formatter);
   return formatter;
@@ -956,6 +1024,7 @@ function offsetMinutesForTimeZone(date, timeZone) {
   parts.forEach((part) => {
     if (part.type !== "literal") values[part.type] = part.value;
   });
+  if (values.hour === "24") values.hour = "00";
   const asUtc = Date.UTC(
     Number(values.year),
     Number(values.month) - 1,
@@ -1045,26 +1114,18 @@ async function ensureLocationTimeZone(location) {
 
 function baseUtcOffsetMinutes(location) {
   const key = locationCacheKey(location);
-  const locationTimeZone = locationTimezoneCache.get(key);
+  const locationTimeZone = locationTimezoneCache.get(key) || seededDefaultTimeZone(location);
   if (locationTimeZone) {
     return detectTimeProfileForZone(new Date(), locationTimeZone).standardOffset;
   }
-  if (APP_CONFIG.time?.autoDetectFromBrowser) {
-    const nowProfile = detectBrowserTimeProfile(new Date());
-    return nowProfile.standardOffset;
-  }
-  if (Number.isFinite(APP_CONFIG.time?.utcOffsetMinutes)) return APP_CONFIG.time.utcOffsetMinutes;
-  return Math.round(location.lon * 4);
+  return estimatedUtcOffsetMinutes(location);
 }
 
 function isDstActive(date, location, baseOffsetMinutes) {
   const key = locationCacheKey(location);
-  const locationTimeZone = locationTimezoneCache.get(key);
+  const locationTimeZone = locationTimezoneCache.get(key) || seededDefaultTimeZone(location);
   if (locationTimeZone) {
     return detectTimeProfileForZone(date, locationTimeZone).dstActive;
-  }
-  if (APP_CONFIG.time?.autoDetectFromBrowser) {
-    return detectBrowserTimeProfile(date).dstActive;
   }
   const dstConfig = APP_CONFIG.time?.dst;
   if (!dstConfig?.enabled) return false;
@@ -1083,12 +1144,9 @@ function isDstActive(date, location, baseOffsetMinutes) {
 
 function localUtcOffsetMinutes(date, location) {
   const key = locationCacheKey(location);
-  const locationTimeZone = locationTimezoneCache.get(key);
+  const locationTimeZone = locationTimezoneCache.get(key) || seededDefaultTimeZone(location);
   if (locationTimeZone) {
     return detectTimeProfileForZone(date, locationTimeZone).activeOffset;
-  }
-  if (APP_CONFIG.time?.autoDetectFromBrowser) {
-    return detectBrowserTimeProfile(date).activeOffset;
   }
   const base = baseUtcOffsetMinutes(location);
   if (isDstActive(date, location, base)) return base + (APP_CONFIG.time?.dst?.offsetMinutes || 60);
@@ -1132,6 +1190,18 @@ function formatMinutes(totalMinutes) {
 
 function formatMinuteWindow(start, end) {
   return `${formatMinutes(start)} - ${formatMinutes(end)}`;
+}
+
+function formatIsoMinute(iso, location) {
+  if (!iso) return "--";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "--";
+  return formatLocationClock(date, location);
+}
+
+function formatIsoWindow(range, location) {
+  if (!range?.start || !range?.end) return "--";
+  return `${formatIsoMinute(range.start, location)} - ${formatIsoMinute(range.end, location)}`;
 }
 
 function locationDayMinute(date, location) {
@@ -1885,6 +1955,35 @@ function formatRashiNameFromVedic(name) {
   return formatRashiName(index);
 }
 
+function phaseNameFromAngle(angle) {
+  return angle < 20 || angle > 340 ? "New Moon" : angle < 170 ? "Waxing Moon" : angle < 190 ? "Full Moon" : "Waning Moon";
+}
+
+function stateFromProduction(data) {
+  const astronomy = data?.astronomy || data?.panchang?.astronomy;
+  const panchang = data?.panchang;
+  if (!astronomy || !panchang) return null;
+  const tithiIndex = Number.isFinite(astronomy.tithiIndex) ? astronomy.tithiIndex : (panchang.tithi?.index || 1) - 1;
+  const nakIndex = Number.isFinite(astronomy.nakshatraIndex) ? astronomy.nakshatraIndex : (panchang.nakshatra?.index || 1) - 1;
+  const sunRashiIndex = Number.isFinite(astronomy.sunRashiIndex) ? astronomy.sunRashiIndex : rashiVedic.indexOf(panchang.rashi?.sun);
+  const moonRashiIndex = Number.isFinite(astronomy.moonRashiIndex) ? astronomy.moonRashiIndex : rashiVedic.indexOf(panchang.rashi?.moon);
+  const monthIndex = gujaratiMonths.findIndex(([month]) => month === panchang.lunarMonth?.name);
+  const angle = Number.isFinite(astronomy.lunarAngle) ? astronomy.lunarAngle : 0;
+  return {
+    sun: Number.isFinite(astronomy.sunLongitude) ? astronomy.sunLongitude : 0,
+    moon: Number.isFinite(astronomy.moonLongitude) ? astronomy.moonLongitude : 0,
+    angle,
+    tithiIndex,
+    nakIndex,
+    sunRashiIndex: Math.max(0, sunRashiIndex),
+    moonRashiIndex: Math.max(0, moonRashiIndex),
+    monthIndex: Math.max(0, monthIndex),
+    isAdhikMonth: Boolean(panchang.lunarMonth?.adhik),
+    paksha: `${panchang.paksha || panchang.tithi?.paksha || "--"} Paksha`,
+    phase: phaseNameFromAngle(angle)
+  };
+}
+
 function formatMonthDisplay(name, adhik = false) {
   const index = gujaratiMonths.findIndex(([month]) => month === name);
   if (index === -1) return `${adhik ? "Adhik " : ""}${name || "--"}`;
@@ -1933,7 +2032,7 @@ function drawMuhurta(date, location) {
   });
 }
 
-function drawGregorianMonth(date, location) {
+async function drawGregorianMonth(date, location) {
   const grid = document.querySelector("#monthGrid");
   if (!grid) return;
   const title = document.querySelector("#monthPanelTitle");
@@ -1941,6 +2040,7 @@ function drawGregorianMonth(date, location) {
   const monthKey = `${locationMonthKey(date, location)}:${selectedMonth.day}`;
   if (title) title.textContent = formatGregorianMonthTitle(selectedMonth.year, selectedMonth.month);
   if (lastMonthRenderKey === monthKey) return;
+  const requestId = ++monthCalendarRequest;
   grid.innerHTML = "";
 
   const year = selectedMonth.year;
@@ -1953,40 +2053,63 @@ function drawGregorianMonth(date, location) {
   for (let i = 0; i < 42; i += 1) {
     const day = new Date(start);
     day.setDate(start.getDate() + i);
-    const sample = new Date(day);
-    sample.setHours(12, 0, 0, 0);
-    const state = approximateState(sample);
-    const phase = moonPhaseVisual(state.angle);
-    const moonUrl = nasaMoonFrameUrl(sample);
-    const muhurta = computeMuhurta(sample, location);
     const inMonth = day.getMonth() === month;
     const isToday =
       day.getFullYear() === selectedMonth.year &&
       day.getMonth() === selectedMonth.month &&
       day.getDate() === selectedMonth.day;
-    const isFullMoon = state.tithiIndex === 14;
-    const isNewMoon = state.tithiIndex === 29;
-    const milestoneClass = isFullMoon ? " full-moon" : isNewMoon ? " new-moon" : "";
-    const milestoneLabel = isFullMoon ? "Full Moon" : isNewMoon ? "New Moon" : "";
 
     const card = document.createElement("article");
-    card.className = `month-day${inMonth ? "" : " muted"}${isToday ? " current" : ""}${milestoneClass}`;
-    card.style.setProperty("--moon-illumination", phase.illuminated.toFixed(3));
-    card.style.setProperty("--moon-card-glow", (0.01 + phase.illuminated * 0.34).toFixed(3));
-    card.style.setProperty("--moon-card-border", (0.1 + phase.illuminated * 0.58).toFixed(3));
+    card.className = `month-day${inMonth ? "" : " muted"}${isToday ? " current" : ""}`;
     card.innerHTML = `
       <header>
         <strong>${day.getDate()}</strong>
         <span>${weekdayNames[day.getDay()]}</span>
-        <div class="mini-moon" style="--shadow-stop:${phase.stop}%;--moon-lit:${phase.lit};--moon-dark:${phase.dark};--moon-image:${moonUrl ? `url('${moonUrl}')` : "none"};"></div>
+        <div class="mini-moon"></div>
       </header>
-      <p>${tithis[state.tithiIndex]} (${state.paksha.split(" ")[0]})</p>
-      ${milestoneLabel ? `<span class="moon-milestone">${milestoneLabel}</span>` : ""}
-      <p>${nakshatras[state.nakIndex]}</p>
-      <small>Sunrise ${formatMinutes(muhurta.sunrise)} | Sunset ${formatMinutes(muhurta.sunset)}</small>
-      <small>Rahu ${formatMinuteWindow(muhurta.rahu[0], muhurta.rahu[1])}</small>
+      <p>Loading daily Panchang...</p>
+      <p>--</p>
+      <small>Sunrise -- | Sunset --</small>
+      <small>Rahu --</small>
     `;
     grid.appendChild(card);
+
+    const dateValue = formatCivilDateValue(day.getFullYear(), day.getMonth(), day.getDate());
+    const sample = dateFromLocationParts(dateValue, "12:00:00", location);
+    void fetchProductionPanchang({
+      config: APP_CONFIG.panchang,
+      date: sample,
+      location,
+      timeZone: resolvedLocationTimeZone(location)
+    }).then((data) => {
+      if (requestId !== monthCalendarRequest || !data?.panchang) return;
+      const daily = data.dailyPanchang || data.panchang;
+      const astronomy = daily.astronomy || data.astronomy || {};
+      const angle = Number.isFinite(astronomy.lunarAngle) ? astronomy.lunarAngle : 0;
+      const phase = moonPhaseVisual(angle);
+      const moonUrl = nasaMoonFrameUrl(new Date(daily.at || sample));
+      const tithiIndex = (daily.tithi?.index || 1) - 1;
+      const isFullMoon = tithiIndex === 14;
+      const isNewMoon = tithiIndex === 29;
+      const milestoneClass = isFullMoon ? " full-moon" : isNewMoon ? " new-moon" : "";
+      const milestoneLabel = isFullMoon ? "Full Moon" : isNewMoon ? "New Moon" : "";
+      card.className = `month-day${inMonth ? "" : " muted"}${isToday ? " current" : ""}${milestoneClass}`;
+      card.style.setProperty("--moon-illumination", phase.illuminated.toFixed(3));
+      card.style.setProperty("--moon-card-glow", (0.01 + phase.illuminated * 0.34).toFixed(3));
+      card.style.setProperty("--moon-card-border", (0.1 + phase.illuminated * 0.58).toFixed(3));
+      card.innerHTML = `
+        <header>
+          <strong>${day.getDate()}</strong>
+          <span>${weekdayNames[day.getDay()]}</span>
+          <div class="mini-moon" style="--shadow-stop:${phase.stop}%;--moon-lit:${phase.lit};--moon-dark:${phase.dark};--moon-image:${moonUrl ? `url('${moonUrl}')` : "none"};"></div>
+        </header>
+        <p>${daily.tithi?.name || "--"} (${daily.paksha || daily.tithi?.paksha || "--"})</p>
+        ${milestoneLabel ? `<span class="moon-milestone">${milestoneLabel}</span>` : ""}
+        <p>${daily.nakshatra?.name || "--"}</p>
+        <small>Sunrise ${formatIsoMinute(data.muhurta?.sunrise, location)} | Sunset ${formatIsoMinute(data.muhurta?.sunset, location)}</small>
+        <small>Rahu ${formatIsoWindow(data.muhurta?.rahuKaal, location)}</small>
+      `;
+    });
   }
   lastMonthRenderKey = monthKey;
 }
@@ -2160,8 +2283,9 @@ function updateText(state, date, location) {
     phaseChipVisual.style.setProperty("--shadow-stop", `${phase.stop}%`);
     phaseChipVisual.style.setProperty("--moon-lit", phase.lit);
     phaseChipVisual.style.setProperty("--moon-dark", phase.dark);
-    if (moonUrl && phaseChipVisual.tagName === "IMG") {
-      phaseChipVisual.src = moonUrl;
+    phaseChipVisual.style.setProperty("--moon-image", moonUrl ? `url("${moonUrl}")` : "none");
+    if (phaseChipVisual.tagName === "IMG") {
+      phaseChipVisual.src = moonUrl || TRANSPARENT_IMAGE_SRC;
     }
   }
   setText("#localTimeLabel", formatLocationClock(date, location));
@@ -2204,6 +2328,16 @@ async function applyProductionPanchang(date, location) {
   panchangCardMode = "production";
   const { panchang, transitions, engine, time } = data;
   const pakshaShort = panchang.paksha || panchang.tithi?.paksha || "";
+  const productionState = stateFromProduction(data);
+  if (productionState) {
+    updateText(productionState, date, location);
+    if (shouldRenderSection(".wheel-wrap")) {
+      updateEarthCore(date, location);
+      updateSunVisual(productionState);
+      updateStarChart(date, location, productionState.nakIndex);
+      drawWheel(productionState, date, location);
+    }
+  }
 
   setText("#tithiValue", `${pakshaShort} ${panchang.tithi?.name || "--"}`);
   setText("#nakshatraValue", formatNakshatraDisplay(panchang.nakshatra?.name || "--"));
@@ -2464,6 +2598,14 @@ const initialState = readInitialState(APP_CONFIG.defaults);
 locationInput.value = initialState.locationName;
 latInput.value = initialState.lat.toFixed(4);
 lonInput.value = initialState.lon.toFixed(4);
+if (APP_CONFIG.defaults?.timeZone) {
+  setBoundedMapEntry(
+    locationTimezoneCache,
+    locationCacheKey({ lat: APP_CONFIG.defaults.lat, lon: APP_CONFIG.defaults.lon }),
+    APP_CONFIG.defaults.timeZone,
+    MAX_LOCATION_TIMEZONE_CACHE
+  );
+}
 syncDateTimeInputs(Number.isNaN(initialState.date.getTime()) ? new Date() : initialState.date);
 if (urlParams.get("manualCoords") === "1" && manualCoordinates) {
   manualCoordinates.open = true;

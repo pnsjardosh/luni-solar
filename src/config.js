@@ -32,6 +32,7 @@ export const APP_CONFIG = {
   defaults: {
     locationName: "Ujjain, India",
     lat: 23.1765,
-    lon: 75.7885
+    lon: 75.7885,
+    timeZone: "Asia/Kolkata"
   }
 };
