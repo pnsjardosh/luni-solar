@@ -1200,6 +1200,20 @@ function formatMinutes(totalMinutes) {
   return `${hour12}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
+function minutesToTimeValue(totalMinutes) {
+  const minutes = Math.round(wrap(totalMinutes, 1440));
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
+}
+
+function sunriseSampleForCivilDate(dateValue, location) {
+  const noon = dateFromLocationParts(dateValue, "12:00:00", location);
+  const muhurta = computeMuhurta(noon, location);
+  const sample = dateFromLocationParts(dateValue, minutesToTimeValue(muhurta.sunrise + 1), location);
+  return { sample, muhurta };
+}
+
 function formatMinuteWindow(start, end) {
   return `${formatMinutes(start)} - ${formatMinutes(end)}`;
 }
@@ -2107,9 +2121,8 @@ async function drawGregorianMonth(date, location) {
       day.getMonth() === selectedMonth.month &&
       day.getDate() === selectedMonth.day;
     const dateValue = formatCivilDateValue(day.getFullYear(), day.getMonth(), day.getDate());
-    const sample = dateFromLocationParts(dateValue, "12:00:00", location);
+    const { sample, muhurta: fallbackMuhurta } = sunriseSampleForCivilDate(dateValue, location);
     const fallbackState = approximateState(sample);
-    const fallbackMuhurta = computeMuhurta(sample, location);
 
     const card = document.createElement("article");
     renderMonthCard(card, day, inMonth, isToday, {
@@ -2331,7 +2344,11 @@ function updateText(state, date, location) {
   setText("#moonRashiFocus", `${rashiSigns[state.moonRashiIndex]} ${formatRashiName(state.moonRashiIndex)}`);
   setText("#sunRashiFocus", `${rashiSigns[state.sunRashiIndex]} ${formatRashiName(state.sunRashiIndex)}`);
   if (!useProductionCards) {
-    setText("#tithiValue", `${state.paksha.split(" ")[0]} ${tithis[state.tithiIndex]}`);
+    const civil = locationMonthParts(date, location);
+    const dateValue = formatCivilDateValue(civil.year, civil.month, civil.day);
+    const sunriseState = approximateState(sunriseSampleForCivilDate(dateValue, location).sample);
+    setText("#tithiValue", `${sunriseState.paksha.split(" ")[0]} ${tithis[sunriseState.tithiIndex]}`);
+    setText("#sunriseTithiValue", `${state.paksha.split(" ")[0]} ${tithis[state.tithiIndex]}`);
     setText("#nakshatraValue", `${nakshatras[state.nakIndex]} / ${nakshatraSanskrit[state.nakIndex]} / ${nakshatraCommon[state.nakIndex]}`);
     setText("#moonRashiValue", formatRashiName(state.moonRashiIndex));
     setText("#sunRashiValue", formatRashiName(state.sunRashiIndex));
@@ -2382,8 +2399,8 @@ async function applyProductionPanchang(date, location) {
     }
   }
 
-  setText("#tithiValue", `${pakshaShort} ${panchang.tithi?.name || "--"}`);
-  setText("#sunriseTithiValue", `${sunriseDay?.paksha || sunriseDay?.tithi?.paksha || "--"} ${sunriseDay?.tithi?.name || "--"}`);
+  setText("#tithiValue", `${sunriseDay?.paksha || sunriseDay?.tithi?.paksha || "--"} ${sunriseDay?.tithi?.name || "--"}`);
+  setText("#sunriseTithiValue", `${pakshaShort} ${panchang.tithi?.name || "--"}`);
   setText("#nakshatraValue", formatNakshatraDisplay(panchang.nakshatra?.name || "--"));
   setText("#moonRashiValue", formatRashiNameFromVedic(panchang.rashi?.moon || "--"));
   setText("#sunRashiValue", formatRashiNameFromVedic(panchang.rashi?.sun || "--"));
