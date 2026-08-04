@@ -1325,12 +1325,22 @@ function nasaMoonFrameUrl(date) {
   return `${APP_CONFIG.assets.nasaMoonFrameBase}/moon.${padded}.jpg`;
 }
 
-function nasaFullMoonFallbackUrl() {
-  return nasaMoonFrameUrl(new Date(2026, 0, 3, 17, 0, 0, 0));
+let referenceNewMoon2026 = null;
+
+function nasaMoonVisualUrl(date) {
+  const directUrl = nasaMoonFrameUrl(date);
+  if (directUrl) return directUrl;
+
+  if (!referenceNewMoon2026) {
+    referenceNewMoon2026 = findNextNewMoonAfter(new Date(Date.UTC(2026, 0, 1, 12, 0, 0, 0)));
+  }
+  const synodicMonthMs = 29.530588853 * 86400000;
+  const phaseOffsetMs = (wrap(lunarAngle(date)) / 360) * synodicMonthMs;
+  return nasaMoonFrameUrl(new Date(referenceNewMoon2026.getTime() + phaseOffsetMs));
 }
 
 function preloadMoonFrame(date) {
-  const url = nasaMoonFrameUrl(date);
+  const url = nasaMoonVisualUrl(date);
   if (!url || moonImageCache.has(url)) return url;
 
   const image = new Image();
@@ -1535,7 +1545,7 @@ function drawWheel(state, date, location) {
     }
     if (label === "Moon") {
       const phase = moonPhaseVisual(moonAngle);
-      const moonUrl = nasaMoonFrameUrl(date);
+      const moonUrl = nasaMoonVisualUrl(date);
       if (moonUrl) {
         const clipId = `moonClip-${Math.round(x)}-${Math.round(y)}`;
         const clip = document.createElementNS(ns, "clipPath");
@@ -2063,6 +2073,31 @@ async function drawGregorianMonth(date, location) {
   start.setDate(1 - firstOfMonth.getDay());
 
   const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const renderMonthCard = (card, day, inMonth, isToday, details) => {
+    const phase = moonPhaseVisual(details.angle);
+    const moonUrl = details.moonUrl || "";
+    const isFullMoon = details.tithiIndex === 14;
+    const isNewMoon = details.tithiIndex === 29;
+    const milestoneClass = isFullMoon ? " full-moon" : isNewMoon ? " new-moon" : "";
+    const milestoneLabel = isFullMoon ? "Full Moon" : isNewMoon ? "New Moon" : "";
+    card.className = `month-day${inMonth ? "" : " muted"}${isToday ? " current" : ""}${milestoneClass}`;
+    card.style.setProperty("--moon-illumination", phase.illuminated.toFixed(3));
+    card.style.setProperty("--moon-card-glow", (0.01 + phase.illuminated * 0.34).toFixed(3));
+    card.style.setProperty("--moon-card-border", (0.1 + phase.illuminated * 0.58).toFixed(3));
+    card.innerHTML = `
+      <header>
+        <strong>${day.getDate()}</strong>
+        <span>${weekdayNames[day.getDay()]}</span>
+        <div class="mini-moon" style="--shadow-stop:${phase.stop}%;--moon-lit:${phase.lit};--moon-dark:${phase.dark};--moon-image:${moonUrl ? `url('${moonUrl}')` : "none"};"></div>
+      </header>
+      <p>${details.tithiName || "--"} (${details.pakshaName || "--"})</p>
+      ${milestoneLabel ? `<span class="moon-milestone">${milestoneLabel}</span>` : ""}
+      <p>${details.nakshatraName || "--"}</p>
+      <small>Sunrise ${details.sunriseText || "--"} | Sunset ${details.sunsetText || "--"}</small>
+      <small>Rahu ${details.rahuText || "--"}</small>
+    `;
+  };
+
   for (let i = 0; i < 42; i += 1) {
     const day = new Date(start);
     day.setDate(start.getDate() + i);
@@ -2071,57 +2106,48 @@ async function drawGregorianMonth(date, location) {
       day.getFullYear() === selectedMonth.year &&
       day.getMonth() === selectedMonth.month &&
       day.getDate() === selectedMonth.day;
-
-    const card = document.createElement("article");
-    card.className = `month-day${inMonth ? "" : " muted"}${isToday ? " current" : ""}`;
-    card.innerHTML = `
-      <header>
-        <strong>${day.getDate()}</strong>
-        <span>${weekdayNames[day.getDay()]}</span>
-        <div class="mini-moon"></div>
-      </header>
-      <p>Loading daily Panchang...</p>
-      <p>--</p>
-      <small>Sunrise -- | Sunset --</small>
-      <small>Rahu --</small>
-    `;
-    grid.appendChild(card);
-
     const dateValue = formatCivilDateValue(day.getFullYear(), day.getMonth(), day.getDate());
     const sample = dateFromLocationParts(dateValue, "12:00:00", location);
+    const fallbackState = approximateState(sample);
+    const fallbackMuhurta = computeMuhurta(sample, location);
+
+    const card = document.createElement("article");
+    renderMonthCard(card, day, inMonth, isToday, {
+      angle: fallbackState.angle,
+      moonUrl: nasaMoonVisualUrl(sample),
+      tithiIndex: fallbackState.tithiIndex,
+      tithiName: tithis[fallbackState.tithiIndex],
+      pakshaName: fallbackState.paksha,
+      nakshatraName: nakshatras[fallbackState.nakIndex],
+      sunriseText: formatMinutes(fallbackMuhurta.sunrise),
+      sunsetText: formatMinutes(fallbackMuhurta.sunset),
+      rahuText: `${formatMinutes(fallbackMuhurta.rahu[0])} - ${formatMinutes(fallbackMuhurta.rahu[1])}`
+    });
+    grid.appendChild(card);
+
     void fetchProductionPanchang({
       config: APP_CONFIG.panchang,
       date: sample,
       location,
       timeZone: resolvedLocationTimeZone(location)
     }).then((data) => {
-      if (requestId !== monthCalendarRequest || !data?.panchang) return;
+      if (requestId !== monthCalendarRequest || (!data?.panchang && !data?.sunriseDayPanchang && !data?.dailyPanchang)) return;
       const daily = data.sunriseDayPanchang || data.dailyPanchang || data.panchang;
       const astronomy = daily.astronomy || data.astronomy || {};
       const angle = Number.isFinite(astronomy.lunarAngle) ? astronomy.lunarAngle : 0;
-      const phase = moonPhaseVisual(angle);
-      const moonUrl = nasaMoonFrameUrl(new Date(daily.at || sample));
+      const moonUrl = nasaMoonVisualUrl(sample);
       const tithiIndex = (daily.tithi?.index || 1) - 1;
-      const isFullMoon = tithiIndex === 14;
-      const isNewMoon = tithiIndex === 29;
-      const milestoneClass = isFullMoon ? " full-moon" : isNewMoon ? " new-moon" : "";
-      const milestoneLabel = isFullMoon ? "Full Moon" : isNewMoon ? "New Moon" : "";
-      card.className = `month-day${inMonth ? "" : " muted"}${isToday ? " current" : ""}${milestoneClass}`;
-      card.style.setProperty("--moon-illumination", phase.illuminated.toFixed(3));
-      card.style.setProperty("--moon-card-glow", (0.01 + phase.illuminated * 0.34).toFixed(3));
-      card.style.setProperty("--moon-card-border", (0.1 + phase.illuminated * 0.58).toFixed(3));
-      card.innerHTML = `
-        <header>
-          <strong>${day.getDate()}</strong>
-          <span>${weekdayNames[day.getDay()]}</span>
-          <div class="mini-moon" style="--shadow-stop:${phase.stop}%;--moon-lit:${phase.lit};--moon-dark:${phase.dark};--moon-image:${moonUrl ? `url('${moonUrl}')` : "none"};"></div>
-        </header>
-        <p>${daily.tithi?.name || "--"} (${daily.paksha || daily.tithi?.paksha || "--"})</p>
-        ${milestoneLabel ? `<span class="moon-milestone">${milestoneLabel}</span>` : ""}
-        <p>${daily.nakshatra?.name || "--"}</p>
-        <small>Sunrise ${formatIsoMinute(data.muhurta?.sunrise, location)} | Sunset ${formatIsoMinute(data.muhurta?.sunset, location)}</small>
-        <small>Rahu ${formatIsoWindow(data.muhurta?.rahuKaal, location)}</small>
-      `;
+      renderMonthCard(card, day, inMonth, isToday, {
+        angle,
+        moonUrl,
+        tithiIndex,
+        tithiName: daily.tithi?.name,
+        pakshaName: daily.paksha || daily.tithi?.paksha,
+        nakshatraName: daily.nakshatra?.name,
+        sunriseText: formatIsoMinute(data.muhurta?.sunrise, location),
+        sunsetText: formatIsoMinute(data.muhurta?.sunset, location),
+        rahuText: formatIsoWindow(data.muhurta?.rahuKaal, location)
+      });
     });
   }
   lastMonthRenderKey = monthKey;
@@ -2214,7 +2240,7 @@ function getVedicYearMonths(year) {
     if (state.isAdhikMonth) hasAdhikMonth = true;
     const fullMoonState = approximateState(fullMoonSample);
     const phase = moonPhaseVisual(fullMoonState.angle);
-    const moonUrl = nasaMoonFrameUrl(fullMoonSample) || nasaFullMoonFallbackUrl();
+    const moonUrl = nasaMoonVisualUrl(fullMoonSample);
     const [month, anchor, festival] = gujaratiMonths[monthSequenceIndex] || gujaratiMonths[gujaratiMonths.length - 1];
     months.push({
       index,
@@ -2292,7 +2318,7 @@ function updateText(state, date, location) {
   setText("#phaseChipMeta", "Moon phase");
   const phase = moonPhaseVisual(state.angle);
   if (phaseChipVisual) {
-    const moonUrl = nasaMoonFrameUrl(date);
+    const moonUrl = nasaMoonVisualUrl(date);
     phaseChipVisual.style.setProperty("--shadow-stop", `${phase.stop}%`);
     phaseChipVisual.style.setProperty("--moon-lit", phase.lit);
     phaseChipVisual.style.setProperty("--moon-dark", phase.dark);
@@ -2405,7 +2431,7 @@ function drawJourney(date) {
   marker.className = "moon-marker";
   const currentState = approximateState(date);
   const phase = moonPhaseVisual(currentState.angle);
-  const moonUrl = nasaMoonFrameUrl(date);
+  const moonUrl = nasaMoonVisualUrl(date);
   const progress = Math.min(1, Math.max(0, (date - dayStart) / total));
   marker.style.setProperty("--x", `${progress * 100}%`);
   marker.style.setProperty("--shadow-stop", `${phase.stop}%`);
